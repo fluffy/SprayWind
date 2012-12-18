@@ -1,4 +1,4 @@
 SprayWind
 =========
 
-Remote wind and weather sensor that can use satellite to link information back to website  
+Remote wind and weather sensor that can use a satellite link to send information back to a website.
