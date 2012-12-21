@@ -15,3 +15,13 @@ def getWind( request, sensorName ):
     return render(request, 'wind.html', 
     				{ 'time':sensorReading.time, 
     				  'avgWind':sensorReading.avgWind } )
+
+
+def cloudMailInJson( request ):
+
+	html = "<html><body> Mail IN is OK "
+	html += "request method = " + request.method + "\n"
+	html += "request body = " + request.body + "\n"
+	html += "</body></html>" 
+
+	return HttpResponse(html)
