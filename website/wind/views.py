@@ -4,7 +4,6 @@ import datetime
 import json
 import string
 
-
 from website.wind.models import SensorReading
 
 
@@ -25,17 +24,27 @@ def cloudMailInJson( request ):
   	now = datetime.datetime.now()
 
 	log =  "cloudMainInJson at %s \n" % now
-	log += "request method = " + request.method + "\n"
-	log += "request body = " + request.body + "\n"
+	log += "request method = %s\n" % request.method 
+	log += "request body = %s \n\n" % request.body 
 
 	email = json.loads( request.body )
 	body = email[ 'plain' ]
 	senml = body[ string.find(body,"{") : string.rfind(body,"}")+1 ]
-	print senml
 	sensor = json.loads( senml )
-	log += "senml = " + json.dumps( sensor )
 
- 	r = SensorReading( sensorID=sensorName, time=now, info=log, minWind=1.0, avgWind=2.0, maxWind=3.0 )
+	log += "senml = %s \n" % json.dumps( sensor ) 
+
+	minWind = -1.0
+	avgWind = -1.0
+	maxWind = -1.0
+	for reading in sensor[ 'e' ]:
+		if reading['n'] == "minWind":  minWind = reading['v']
+		if reading['n'] == "avgWind":  avgWind = reading['v']
+		if reading['n'] == "maxWind":  maxWind = reading['v']
+
+	log += "wind (min,avg,max) = %s,%s,%s \n"%( minWind, avgWind, maxWind)
+
+ 	r = SensorReading( sensorID=sensorName, time=now, info=log, minWind=minWind, avgWind=avgWind, maxWind=maxWind )
   	r.save()
 
 	return HttpResponse( )
