@@ -1,4 +1,6 @@
 *~
 *.pyc
-setting_backup.py
+settings.backup
+settings.py
+
 
