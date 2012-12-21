@@ -1,0 +1,9 @@
+{ "headers": { "Received": [ "by mail-la0-f49.google.com with SMTP id r15so5615136lag.22 for <7283704ddb95d755fa15@cloudmailin.net>; Fri, 21 Dec 2012 11:56:24 -0800", "by 10.152.108.172 with SMTP id hl12mr13327351lab.32.1356119784162; Fri, 21 Dec 2012 11:56:24 -0800", "by 10.112.58.138 with HTTP; Fri, 21 Dec 2012 11:56:24 -0800" ], "Date": "Fri, 21 Dec 2012 12:56:24 -0700", "From": "Cullen Jennings ", "Sender": "cullenfluffyjennings@gmail.com", "To": "7283704ddb95d755fa15@cloudmailin.net", "Message-ID": "", "Subject": "test subject", "Mime-Version": "1.0", "Content-Type": "multipart/alternative; boundary=bcaec54eebe802050c04d1623e3a", "DKIM-Signature": "v=1; a=rsa-sha256; c=relaxed/relaxed; d=gmail.com; s=20120113; h=mime-version:sender:date:x-google-sender-auth:message-id:subject :from:to:content-type; bh=GR8Zf1Qz/J4f8oBVEr/ZIz4pQ8b1qTBPagzvnP/lJRY=; b=MGYx8LIm1E8KSLjANtMy3hLHhddAcMZmajpnY0YR1FAIHWuYX79fpwIZQnAIIcdnaH CBhV89q3Fbf3mMt3l3GUm0fUI0Qs4EwuYENfBZ8nOKUcoNU+sWqKOTc7OTfTXhvP9IB5 lONiJlFREFOhsX+CSFklJgF/0Tmx7/H5kzqveoyvJLbniGxOkNwdJgZles0XmQ6NL91x IrsdnZD2UdWdSAqKMqZobRfXBXA4jlRbYZJzNGYYkwLGiOsuM58bhqUXRDJ8PpYLqT5j ZFtACbyQyA/7N0ZaljQpPCgEbRPvJsvasLzug+h8uHZIDVKZBAG40Lrz7FrGTWmr110+ MwtQ==", "X-Google-Sender-Auth": "obctlOBOljFpdn6uwX5HTzAo0J4" }, "envelope": { "to": "7283704ddb95d755fa15@cloudmailin.net", "from": "cullenfluffyjennings@gmail.com", "helo_domain": "mail-la0-f49.google.com", "remote_ip": "209.85.215.49", "spf": { "result": "neutral", "domain": "gmail.com" } }, "plain": "start b\n\n{ 'a' : 3 , 'b' : \"foo\" }\n\nend b", "html": "
+
+start b
+
+{ 'a' : 3 , 'b' : "foo" } 
+
+end b
+
+", "reply_plain": null, "attachments": [ ] }
