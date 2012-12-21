@@ -4,11 +4,8 @@ import datetime
 
 from website.wind.models import SensorReading
 
-def getWind( request, sensorName ):
 
-    now = datetime.datetime.now()
-    r = SensorReading( sensorID=sensorName, time=now, minWind=1.0, avgWind=2.0, maxWind=3.0 )
-    r.save()
+def getWind( request, sensorName ):
 
     sensorReading = SensorReading.objects.get( sensorID=sensorName )
 
@@ -17,11 +14,22 @@ def getWind( request, sensorName ):
     				  'avgWind':sensorReading.avgWind } )
 
 
+def getInfo( request, sensorName ):
+
+    sensorReading = SensorReading.objects.get( sensorID=sensorName )
+
+    return HttpResponse( "<html><body>\n" + sensorReading.info + "\n</body></html>" )
+
+
 def cloudMailInJson( request ):
+	sensorName = "sprayWind"
+  	now = datetime.datetime.now()
 
-	html = "<html><body> Mail IN is OK "
-	html += "request method = " + request.method + "\n"
-	html += "request body = " + request.body + "\n"
-	html += "</body></html>" 
+	log =  "cloudMainInJson at %s \n" % now
+	log += "request method = " + request.method + "\n"
+	log += "request body = " + request.body + "\n"
 
-	return HttpResponse(html)
+ 	r = SensorReading( sensorID=sensorName, time=now, info=log, minWind=1.0, avgWind=2.0, maxWind=3.0 )
+  	r.save()
+
+	return HttpResponse( )
