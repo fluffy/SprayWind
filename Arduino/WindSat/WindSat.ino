@@ -41,8 +41,24 @@
  */
 
 #include <Serial.h>
+#define ONEWIRE_CRC16 0
+#define ONEWIRE_CRC8_TABLE 0
+#include <OneWire.h>
 
-#define DEBUG 
+#define DEBUG( X ) Serial.print( "  " ); Serial.println( X ); delay( 20 );
+#define DEBUG2( X, Y ) Serial.print( "  " ); Serial.print( X ); Serial.println( Y ); delay( 20 );
+
+const int windPin = 2;     // the number of the wind speed pin - must be 2 for interupt 0 
+const int batteryPin = 1;  // analog pin for battery voltage sense 
+const int spotPowerPin = 6; /* PwrPin - turns on power to SPOT device */
+
+const int spotOnPin = 7;  /* controlls the "on" button on the SPOT to turn the device on and off  */
+
+
+
+
+// ========================================================================
+// Stuff for Spot Connect Satalite code 
 
 class SatConnect
 {
@@ -121,7 +137,7 @@ SatConnect::SatConnectState SatConnect::state()
   while ( millis() < lastTime + 150 ); // no data for 100 ms 
 
   static uint8_t statReq[3] = {  
-    0xAA, 0x03, 0x52     };
+    0xAA, 0x03, 0x52               };
   serial.write( statReq, sizeof( statReq ) );
 
   lastTime = millis();
@@ -304,7 +320,7 @@ void  SatConnect::write( char* msg, int len )
   // send message to SPOT 
   serial.flush();
   static uint8_t sendReq[8] = { 
-    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01     };
+    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01               };
   sendReq[1] = sizeof(sendReq) + len; // set the length of the message 
   serial.write( sendReq, sizeof( sendReq ) );
   serial.write( (uint8_t*)msg, len );
@@ -358,8 +374,270 @@ void  SatConnect::write( char* msg, int len )
 }
 
 
-SatConnect satConnect( Serial3, 6 /* PwrPin */ , 7 /* OnPin */ ); 
+SatConnect satConnect( Serial3, spotPowerPin, spotOnPin ); 
 
+// =================================================================
+// stuff for wind 
+
+volatile unsigned long windCount; // count of revolutions of wind sensor 
+unsigned long startTime;
+unsigned long prevTime;
+unsigned long startCount;
+unsigned long prevCount;
+unsigned int  minMetersPer10s=0;
+unsigned int  curMetersPer10s=0;
+unsigned int  maxMetersPer10s=0;
+unsigned int  avgMetersPer10s=0;
+
+
+void incWindCount()
+{
+  // this is the itnerupt handler and interupts are disabled in it
+  windCount++; 
+}
+
+
+unsigned long getWindCount()
+{
+  unsigned long r;
+  noInterrupts(); // disable interupts while copying the counter 
+  r = windCount;
+  interrupts();
+  return r; 
+}
+
+
+void resetWind()
+{
+  unsigned long time = millis();
+  unsigned long count = getWindCount();
+
+  startTime = time;
+  prevTime = time;
+  startCount = count;
+  prevCount = count; 
+
+  minMetersPer10s = 0xFFFF;
+  maxMetersPer10s = 0;
+}
+
+
+void updateWind()
+{
+  unsigned long time = millis();
+
+  if ( time < prevTime + 5000 ) // wait at least 5 seconds
+  {
+    return;
+  }
+  unsigned long count = getWindCount();
+
+  unsigned long dTime = time - prevTime;
+  unsigned long dCount = count - prevCount;
+  unsigned long dMeters = (int)dCount + ( (int)dCount / 8 ); // sketchy conversion that looks about right 
+  curMetersPer10s = dMeters * 10000 / (int)dTime ;  // 10000 is 10 secons and 1000 to move time from ms to s
+
+  if ( curMetersPer10s > maxMetersPer10s ) maxMetersPer10s = curMetersPer10s;
+  if ( curMetersPer10s < minMetersPer10s ) minMetersPer10s = curMetersPer10s;
+
+  //Serial.print( "dTime = " ); 
+  //Serial.println( dTime );
+
+  //Serial.print( "dCount = " ); 
+  //Serial.println( dCount );
+
+  //Serial.print( "Current = " ); 
+  //Serial.println( curMetersPer10s );
+
+  dTime = (time - startTime) / 100; // in 10th of seconds 
+  dCount = count - startCount;
+  unsigned long avgCountPer10s =  dCount*100 / dTime; // 100 is 10 for per 10 seconds , and 10 for time is in 10ths of seconds
+  avgMetersPer10s = (int)avgCountPer10s + ( (int)avgCountPer10s / 8 ); // sketchy conversion that looks about right 
+
+  //Serial.print( "Avg = " ); 
+  //Serial.println( avgMetersPer10s );
+
+  prevTime = time;
+  prevCount = count;
+}
+
+
+//===============================================================================
+// Stuff for battery 
+
+unsigned int voltageX100=0;
+
+void updateBattery()
+{
+  int v = analogRead( batteryPin ); // 0-5 v scaled to 0-1023 
+
+  voltageX100 = 80 + v + (v>>1) + (v>>5); 
+}
+
+
+// ===============================================================================
+// Stuff for temperature   
+
+int          tempatureX10=0; 
+typedef uint8_t DeviceAddr[8];
+DeviceAddr tempatureAddr;
+OneWire  oneWireBus(10); // using digiital IO on pin 10
+
+
+void copyAddr( uint8_t src[], uint8_t dst[] )
+{
+  for( int i=0; i<8; i++ )
+  {
+    dst[i]=src[i];
+  }
+}
+
+
+void setupTemp()
+{
+  tempatureX10 = 0;
+
+  DEBUG("Scanning 1-wire Bus A ...");
+  DeviceAddr addr;
+  oneWireBus.reset_search();
+  while ( oneWireBus.search(addr) )
+  {
+    if ( OneWire::crc8( addr, 7) != addr[7]) 
+    {
+      Serial.println("BAD-CRC2");
+    }
+    else
+    {
+      if ( addr[0] == 0x10) 
+      {
+        DEBUG("Found DS18S20 Temperature on bus A");
+        copyAddr( addr, tempatureAddr);       
+      }
+      if ( addr[0] == 0x28) 
+      {
+        DEBUG("Found DS18B20 Temperature on bus A");
+        copyAddr( addr, tempatureAddr);       
+      }
+      else
+      {
+        DEBUG2("Found one wire device of type address: ",  addr[0] );
+      }
+    }
+  }
+}
+
+
+void updateTemp( )
+{
+  oneWireBus.reset();
+  oneWireBus.select(tempatureAddr);
+  oneWireBus.write(0x44,1);  // do conversion 
+
+  delay(750);  // 750 ms for conversion time   
+
+  oneWireBus.reset();
+  oneWireBus.select(tempatureAddr);    
+  oneWireBus.write(0xBE);  // read results
+
+  byte data[9];
+  for ( int i = 0; i < 9; i++) 
+  {          
+    data[i] = oneWireBus.read();
+  }
+  if ( OneWire::crc8( data, 8) != data[8] )
+  {
+    Serial.println("BAD-CRC");
+    tempatureX10 = 0;
+    return ; 
+  }
+
+  int temp16x = (data[1]<<8) + data[0];
+  tempatureX10 = (temp16x*10) / 16;
+
+  DEBUG2( "Got tempature 10x = " , tempatureX10 );
+}
+
+
+// ========================================================================
+// stuff to form the output JSON sent over SPOT 
+
+char  outputVector[41];
+void formatOutputVector()
+{
+  int i=0;
+  outputVector[i++] = '{';
+  outputVector[i++] = '"';
+  outputVector[i++] = 'v';
+  outputVector[i++] = '"';
+  outputVector[i++] = ':';
+  outputVector[i++] = '[';
+
+  outputVector[i++] = '0' + (curMetersPer10s/100)%10;
+  if  (outputVector[i-1] == '0' ) outputVector[i-1]=' ';
+  outputVector[i++] = '0' + (curMetersPer10s/10 )%10;
+  outputVector[i++] = '.';
+  outputVector[i++] = '0' + (curMetersPer10s    )%10;
+  outputVector[i++] = ',';
+
+  outputVector[i++] = '0' + (minMetersPer10s/100)%10;
+  if  (outputVector[i-1] == '0' ) outputVector[i-1]=' ';
+  outputVector[i++] = '0' + (minMetersPer10s/10 )%10;
+  outputVector[i++] = '.';
+  outputVector[i++] = '0' + (minMetersPer10s    )%10;
+  outputVector[i++] = ',';
+
+  outputVector[i++] = '0' + (avgMetersPer10s/100)%10;
+  if  (outputVector[i-1] == '0' ) outputVector[i-1]=' ';
+  outputVector[i++] = '0' + (avgMetersPer10s/10 )%10;
+  outputVector[i++] = '.';
+  outputVector[i++] = '0' + (avgMetersPer10s    )%10;
+  outputVector[i++] = ',';
+
+  outputVector[i++] = '0' + (maxMetersPer10s/100)%10;
+  if  (outputVector[i-1] == '0' ) outputVector[i-1]=' ';
+  outputVector[i++] = '0' + (maxMetersPer10s/10 )%10;
+  outputVector[i++] = '.';
+  outputVector[i++] = '0' + (maxMetersPer10s    )%10;
+  outputVector[i++] = ',';
+
+  // output tempature in degC  
+  int v = (tempatureX10>=0) ? tempatureX10 : -tempatureX10;
+  outputVector[i++] = (tempatureX10>0) ? ' ' : '-';
+  outputVector[i++] = '0' + (v/100)%10;
+  if  (outputVector[i-1] == '0' ) 
+  {
+    outputVector[i-1]= (tempatureX10>=0) ? ' ' : '-';
+    outputVector[i-2]= ' ';
+  }
+  outputVector[i++] = '0' + (v/10 )%10;
+  outputVector[i++] = '.';
+  outputVector[i++] = '0' + (v    )%10;
+  outputVector[i++] = ',';
+
+  // output battery voltage voltageX100
+  outputVector[i++] = '0' + (voltageX100/1000)%10;
+  if  (outputVector[i-1] == '0' ) outputVector[i-1]=' ';
+  outputVector[i++] = '0' + (voltageX100/100  )%10;
+  outputVector[i++] = '.';
+  outputVector[i++] = '0' + (voltageX100/10   )%10;
+  outputVector[i++] = '0' + (voltageX100      )%10;
+  //outputVector[i++] = ',';
+
+  outputVector[i++] = ']';
+  outputVector[i++] = '}';
+  outputVector[i++] = 0;
+  if (i >= sizeof(outputVector) )
+  {
+    Serial.println("buffer overlow in format output vector");
+    DEBUG2( "i=" , i );
+    while (1);
+  }
+}
+
+
+
+//=====================================================================
+// main program part 
 
 void setup()
 {
@@ -367,31 +645,62 @@ void setup()
   Serial3.begin(115200); // important - don't forget to setup the serial connection speed to the spot 
 
   delay( 500 ); 
-
   Serial.println("Starting program");
-  satConnect.begin(); // turn spot power on
+
+  // setup wind 
+  pinMode(windPin, INPUT);
+  windCount = 0;
+  attachInterrupt(0, incWindCount, RISING); // int 0 is digital pin 2 
+  resetWind();
+
+  // set up battery 
+  analogReference( DEFAULT );
+
+  // set up temperature on oneWire 
+  setupTemp();
 }
 
 
 void loop()
 {
   static bool sent = false;
+  static unsigned long prevLoopTime;
+  unsigned long thisLoopTime;
+
+  unsigned long thisHour = prevLoopTime / 3600000;
+  unsigned long prevHour = thisLoopTime / 3600000;
+
+  if ( thisHour != prevHour )
+  {
+      // time to send a new report 
+      sent = false; 
+  }
+  
+  // if message to send, and device has been up for at least 30 seconds, turn on the spot
+  if ( (!sent) && ( millis() > 30000 ) )
+  {
+    satConnect.begin(); // turn spot power on
+  }
 
   if (!sent)
   {
     if ( satConnect.ready()  )
     {
+      updateBattery();
+      updateTemp();
+      updateWind();
 
-      char* msg= "{\"e\":[{\"n\":\"avgWind\",\"v\":6.104}]}"; // senml json format 
+      formatOutputVector();
+
+      resetWind();
 
       Serial.print("Sending Message len="); 
-      Serial.print( strlen(msg) ); 
+      Serial.print( strlen(outputVector) ); 
       Serial.print(" "); 
-      Serial.println( msg );
+      Serial.println( outputVector );
 
-      satConnect.write( msg, strlen(msg) );
+      satConnect.write( outputVector, strlen(outputVector) );
       sent = true;
-
     }
   }
   else
@@ -464,8 +773,29 @@ void loop()
   }
 #endif
 
+  updateWind();
+
+#if 1 // print out current conditions ever few seconds 
+  updateBattery();
+  updateTemp();
+
+  formatOutputVector();
+
+  Serial.print("Time = "); 
+  Serial.println( millis()/1000 );
+  Serial.print("Status = "); 
+  Serial.println( outputVector );
+#endif
+
   delay( 1500 ); 
+
+  prevLoopTime = thisLoopTime;
 }
+
+
+
+
+
 
 
 
