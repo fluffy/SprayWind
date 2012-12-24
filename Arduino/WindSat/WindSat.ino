@@ -82,7 +82,6 @@ private:
   const int onPin;
   Stream& serial;
   SatConnect::SatConnectState s; 
-  unsigned long lastTime;
 };
 
 
@@ -90,9 +89,10 @@ SatConnect::SatConnect( Stream& pSerial, int pPwrPin, int pOnPin ):
 serial(pSerial), pwrPin(pPwrPin), onPin(pOnPin)
 {
   pinMode(pwrPin,OUTPUT);
+  pinMode(onPin,OUTPUT);
   digitalWrite( pwrPin, LOW ); // turn off power to SPOT
+  digitalWrite( pwrPin, HIGH ); // Leave button not pushed 
   s = SatConnect::off;
-  lastTime = millis();
 }
 
 
@@ -108,21 +108,27 @@ bool SatConnect::ready()
 
 SatConnect::SatConnectState SatConnect::state()
 {
-  //Serial.print( "    In state() lastTime = " ); 
-  //Serial.println( lastTime );
+  static unsigned long satLastTime=0;
 
-  if  (  s == SatConnect::off )
+  if ( s == SatConnect::off )
   {
     return s;
   }
 
-  if ( millis() < lastTime + 500 ) // if state if less than 500 ms old, don't check for new state 
-  { 
+  if ( s == SatConnect::errorNoSpot )
+  {
     return s;
   }
 
+  unsigned long now =  millis();
+  if ( now < satLastTime + 500 ) // if state if less than 500 ms old, don't check for new state 
+  { 
+    return s;
+  }
+  satLastTime = now;
+
   // flush out any old stuff in serial buffer   
-  lastTime = millis();
+  unsigned long lastTime = millis();
   uint8_t c;
   do
   {
@@ -137,7 +143,7 @@ SatConnect::SatConnectState SatConnect::state()
   while ( millis() < lastTime + 150 ); // no data for 100 ms 
 
   static uint8_t statReq[3] = {  
-    0xAA, 0x03, 0x52                 };
+    0xAA, 0x03, 0x52                             };
   serial.write( statReq, sizeof( statReq ) );
 
   lastTime = millis();
@@ -164,7 +170,7 @@ SatConnect::SatConnectState SatConnect::state()
       break;
     }
   } 
-  while ( (millis() < lastTime + 150) && ( i < sizeof(buf) ) ); // 100 ms timeout 
+  while ( (millis() < lastTime + 150) && ( i < sizeof(buf) ) ); // 150 ms timeout after last char read 
 
   if ( (i != buf[1]) && (i+2 != buf[1]) ) // for some reason always getting 2 bytes short on some firware
   {
@@ -229,7 +235,6 @@ SatConnect::SatConnectState SatConnect::state()
     s = SatConnect::readyToSend;
   }
 
-  lastTime = millis();
   return s;
 }
 
@@ -244,7 +249,7 @@ void SatConnect::begin()
   pinMode(onPin,OUTPUT);
   digitalWrite( pwrPin, LOW ); // turn off power to SPOT
   digitalWrite( onPin, HIGH ); // release the ON button for SPOT  
-  delay( 500 /* don't know how long this should be */ ); // wait for total power off for reset
+  delay( 1500 /* don't know how long this should be */ ); // wait for total power off for reset (500 seemed too low)
   //Serial.println( "  about to turn on power to spot" );
   digitalWrite( pwrPin, HIGH ); // turn on power to SPOT
   //Serial.println( "  power is on" );
@@ -260,7 +265,7 @@ void SatConnect::begin()
   //unsigned long  charTime = millis();
 
   Serial.println( "Wait for SPOT self check and flush serial data" );
-  lastTime = millis();
+  unsigned long lastTime = millis();
   do
   {
     uint8_t c;
@@ -281,7 +286,6 @@ void SatConnect::begin()
   //Serial.print( "flush time was " ); Serial.println( charTime - startTime );
 
   s = SatConnect::poweringUp;   
-  lastTime = millis();
 }
 
 
@@ -290,6 +294,7 @@ void SatConnect::end()
   if ( s ==  SatConnect::off );
   {
     digitalWrite( pwrPin, LOW ); // turn off the power to SPOT
+    delay( 1000 ); // make power stays off of a bit 
     return;  
   }
 
@@ -300,7 +305,8 @@ void SatConnect::end()
   digitalWrite( onPin, HIGH ); // release the ON button for SPOT - should be off now  
   delay( 1500 /* TODO - how long */ );   
   digitalWrite( pwrPin, LOW ); // turn off the power to SPOT
- 
+  delay( 1000 ); // make power stays off of a bit 
+
   s = SatConnect::off;
   Serial.println( "   spot is off" );
 }
@@ -327,12 +333,12 @@ void  SatConnect::write( char* msg, int len )
   // send message to SPOT 
   serial.flush();
   static uint8_t sendReq[8] = { 
-    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01                 };
+    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01                             };
   sendReq[1] = sizeof(sendReq) + len; // set the length of the message 
   serial.write( sendReq, sizeof( sendReq ) );
   serial.write( (uint8_t*)msg, len );
 
-  lastTime = millis();
+  unsigned long lastTime = millis();
   uint8_t buf[ 0x30 ];
   buf[0] = 0;
   buf[1] = sizeof(buf);
@@ -349,12 +355,12 @@ void  SatConnect::write( char* msg, int len )
       break;
     }
   } 
-  while ( (millis() < lastTime + 150) && ( i < sizeof(buf) ) ); // 150 ms timeout 
+  while ( (millis() < lastTime + 500) && ( i < sizeof(buf) ) ); // 500 ms timeout after reqest sent 
 
   if ( i != buf[1] )
   {
     int timeout = millis()-lastTime;
-    Serial.println( "Problem reading packet buf" );
+    Serial.println( "Problem reading packet buf after write" );
     Serial.print( "buf[1]=" ); 
     Serial.println( buf[1] );
     Serial.print( "i=" ); 
@@ -363,10 +369,10 @@ void  SatConnect::write( char* msg, int len )
     Serial.println( timeout );
   }
 
-#ifdef DEBUG
+#if 1
   //Serial.print( "i= 0x" ); 
   //Serial.println( i , HEX );
-  Serial.print( "SPOT Send: " );
+  Serial.print( "SPOT data after write: " );
   for ( int j=0; j<i; j++ )
   {
     int v=buf[j];
@@ -387,10 +393,10 @@ SatConnect satConnect( Serial3, spotPowerPin, spotOnPin );
 // stuff for wind 
 
 volatile unsigned long windCount; // count of revolutions of wind sensor 
-unsigned long startTime;
-unsigned long prevTime;
-unsigned long startCount;
-unsigned long prevCount;
+unsigned long windStartTime;
+unsigned long windPrevTime;
+unsigned long windStartCount;
+unsigned long windPrevCount;
 unsigned int  minMetersPer10s=0;
 unsigned int  curMetersPer10s=0;
 unsigned int  maxMetersPer10s=0;
@@ -419,10 +425,10 @@ void resetWind()
   unsigned long time = millis();
   unsigned long count = getWindCount();
 
-  startTime = time;
-  prevTime = time;
-  startCount = count;
-  prevCount = count; 
+  windStartTime = time;
+  windPrevTime = time;
+  windStartCount = count;
+  windPrevCount = count; 
 
   minMetersPer10s = 0xFFFF;
   maxMetersPer10s = 0;
@@ -433,14 +439,14 @@ void updateWind()
 {
   unsigned long time = millis();
 
-  if ( time < prevTime + 5000 ) // wait at least 5 seconds
+  if ( time < windPrevTime + 10000 ) // wait at least 10 seconds
   {
     return;
   }
   unsigned long count = getWindCount();
 
-  unsigned long dTime = time - prevTime;
-  unsigned long dCount = count - prevCount;
+  unsigned long dTime = time - windPrevTime;
+  unsigned long dCount = count - windPrevCount;
   unsigned long dMeters = (int)dCount + ( (int)dCount / 8 ); // sketchy conversion that looks about right 
   curMetersPer10s = dMeters * 10000 / (int)dTime ;  // 10000 is 10 secons and 1000 to move time from ms to s
 
@@ -456,16 +462,16 @@ void updateWind()
   //Serial.print( "Current = " ); 
   //Serial.println( curMetersPer10s );
 
-  dTime = (time - startTime) / 100; // in 10th of seconds 
-  dCount = count - startCount;
+  dTime = (time - windStartTime) / 100; // in 10th of seconds 
+  dCount = count - windStartCount;
   unsigned long avgCountPer10s =  dCount*100 / dTime; // 100 is 10 for per 10 seconds , and 10 for time is in 10ths of seconds
   avgMetersPer10s = (int)avgCountPer10s + ( (int)avgCountPer10s / 8 ); // sketchy conversion that looks about right 
 
   //Serial.print( "Avg = " ); 
   //Serial.println( avgMetersPer10s );
 
-  prevTime = time;
-  prevCount = count;
+  windPrevTime = time;
+  windPrevCount = count;
 }
 
 
@@ -670,29 +676,39 @@ void setup()
 
 void loop()
 {
-  static bool sent = false;
+  static bool sendNow = false;
   static unsigned long prevLoopTime;
   unsigned long thisLoopTime;
 
   unsigned long thisHour = prevLoopTime / 3600000;
   unsigned long prevHour = thisLoopTime / 3600000;
 
+  // every hour, send a new report
   if ( thisHour != prevHour )
   {
-    // time to send a new report 
-    sent = false; 
+    sendNow = true; 
   }
 
-  // if message to send, and arduino has been up for at least 30 seconds, turn on the spot
-  if ( (!sent) && ( millis() > 30000 ) )
+  // if the spot has and error, shut it down 
+  if ( satConnect.state() == SatConnect::errorNoSpot )
   {
-    if ( (satConnect.state() == SatConnect::off) || (satConnect.state() == SatConnect::errorNoSpot) )
+    satConnect.end(); // turn power to spot off 
+    sendNow = false; // if msg to be sent, wait till next hour
+  }
+
+  // if message to send,
+  if (sendNow)
+  {
+    if (  millis() > 30000  )  // if message to send, and arduino has been up for at least 30 seconds, turn on the spot
     {
-      satConnect.begin(); // turn spot power on
+      if ( (satConnect.state() == SatConnect::off)  )
+      {
+        satConnect.begin(); // turn spot power on
+      }
     }
   }
 
-  if (!sent)
+  if (sendNow)
   {
     if ( satConnect.ready()  )
     {
@@ -710,12 +726,13 @@ void loop()
       Serial.println( outputVector );
 
       satConnect.write( outputVector, strlen(outputVector) );
-      sent = true;
+      sendNow = false;
     }
   }
-  else
-  {
-    if ( satConnect.ready() || ( satConnect.state() == SatConnect::errorNoSpot ) )
+
+  if ( sendNow == false )
+  { 
+    if ( satConnect.ready() )
     {
       satConnect.end(); // turn power to spot off 
     }
@@ -747,7 +764,7 @@ void loop()
     }
     case SatConnect::haveMsgToSend:      
     {  
-      Serial.println( "Spot has msg q'd to send" ); 
+      Serial.println( "Spot has msg ready to send" ); 
       break;
     }
     case SatConnect::findingPostion:      
@@ -772,12 +789,12 @@ void loop()
     }
     case SatConnect::errorNoGPS:      
     {  
-      Serial.println( "Spot connect is errorNoGPS" ); 
+      Serial.println( "Spot connect has error No GPS signal" ); 
       break;
     }
     case SatConnect::errorNoSpot:      
     {  
-      Serial.println( "Spot connect is errorNoSpot" ); 
+      Serial.println( "Spot connect has error No Spot device" ); 
       break;
     }
   }
@@ -785,22 +802,33 @@ void loop()
 
   updateWind();
 
-#if 1 // print out current conditions ever few seconds 
-  updateBattery();
-  updateTemp();
+#if 1 // print out current conditions ever 5 minutes 
+  unsigned long thisFiveMin = prevLoopTime / 300000;
+  unsigned long prevFiveMin = thisLoopTime / 300000;
+  if ( thisFiveMin != prevFiveMin )
+  {
+    updateBattery();
+    updateTemp(); // calling this too often warms up the sensor resulting in bogus measurements
 
-  formatOutputVector();
+    formatOutputVector();
 
-  Serial.print("Time = "); 
-  Serial.print( millis()/1000 );
-  Serial.print("  Status = "); 
-  Serial.println( outputVector );
+    Serial.print("Time = "); 
+    Serial.print( millis()/1000 );
+    Serial.print("  Status = "); 
+    Serial.println( outputVector );
+  }
 #endif
 
   delay( 1500 ); 
 
   prevLoopTime = thisLoopTime;
 }
+
+
+
+
+
+
 
 
 
