@@ -300,6 +300,7 @@ void SatConnect::end()
   digitalWrite( onPin, HIGH ); // release the ON button for SPOT - should be off now  
   delay( 1500 /* TODO - how long */ );   
   digitalWrite( pwrPin, LOW ); // turn off the power to SPOT
+ 
   s = SatConnect::off;
   Serial.println( "   spot is off" );
 }
@@ -685,7 +686,7 @@ void loop()
   // if message to send, and arduino has been up for at least 30 seconds, turn on the spot
   if ( (!sent) && ( millis() > 30000 ) )
   {
-    if ( satConnect.state() == SatConnect::off )
+    if ( (satConnect.state() == SatConnect::off) || (satConnect.state() == SatConnect::errorNoSpot) )
     {
       satConnect.begin(); // turn spot power on
     }
@@ -714,7 +715,7 @@ void loop()
   }
   else
   {
-    if ( satConnect.ready() )
+    if ( satConnect.ready() || ( satConnect.state() == SatConnect::errorNoSpot ) )
     {
       satConnect.end(); // turn power to spot off 
     }
