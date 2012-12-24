@@ -200,6 +200,7 @@ SatConnect::SatConnectState SatConnect::state()
 
   if ( buf[0] != 0xAA )
   {
+    DEBUG("put in errorNoSpot in state() call" );
     s = SatConnect::errorNoSpot;
     return s;
   }
@@ -291,7 +292,7 @@ void SatConnect::begin()
 
 void SatConnect::end()
 {
-  if ( s ==  SatConnect::off );
+  if ( s ==  SatConnect::off )
   {
     digitalWrite( pwrPin, LOW ); // turn off the power to SPOT
     delay( 1000 ); // make power stays off of a bit 
