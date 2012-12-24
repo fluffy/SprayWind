@@ -678,8 +678,10 @@ void setup()
 void loop()
 {
   static bool sendNow = true;
-  static unsigned long prevLoopTime;
+  static unsigned long prevLoopTime=0;
   unsigned long thisLoopTime;
+
+  thisLoopTime = millis();
 
   unsigned long thisHour = prevLoopTime / 3600000;
   unsigned long prevHour = thisLoopTime / 3600000;
