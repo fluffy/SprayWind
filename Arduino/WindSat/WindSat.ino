@@ -137,7 +137,7 @@ SatConnect::SatConnectState SatConnect::state()
   while ( millis() < lastTime + 150 ); // no data for 100 ms 
 
   static uint8_t statReq[3] = {  
-    0xAA, 0x03, 0x52               };
+    0xAA, 0x03, 0x52                 };
   serial.write( statReq, sizeof( statReq ) );
 
   lastTime = millis();
@@ -178,7 +178,7 @@ SatConnect::SatConnectState SatConnect::state()
     Serial.println( timeout );
   }
 
-#ifdef DEBUG
+#if 1
   //Serial.print( "i= 0x" ); 
   //Serial.println( i , HEX );
   Serial.print( "SPOT Status: " );
@@ -287,6 +287,12 @@ void SatConnect::begin()
 
 void SatConnect::end()
 {
+  if ( s ==  SatConnect::off );
+  {
+    digitalWrite( pwrPin, LOW ); // turn off the power to SPOT
+    return;  
+  }
+
   Serial.println( "Shuting down spot" );
   digitalWrite( onPin, LOW ); // press the ON button to power off SPOT
   delay( 2200  );   // 1500 too short 
@@ -320,7 +326,7 @@ void  SatConnect::write( char* msg, int len )
   // send message to SPOT 
   serial.flush();
   static uint8_t sendReq[8] = { 
-    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01               };
+    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01                 };
   sendReq[1] = sizeof(sendReq) + len; // set the length of the message 
   serial.write( sendReq, sizeof( sendReq ) );
   serial.write( (uint8_t*)msg, len );
@@ -554,7 +560,7 @@ void updateTemp( )
   int temp16x = (data[1]<<8) + data[0];
   tempatureX10 = (temp16x*10) / 16;
 
-  DEBUG2( "Got tempature 10x = " , tempatureX10 );
+  //DEBUG2( "Got tempature 10x = " , tempatureX10 );
 }
 
 
@@ -672,14 +678,17 @@ void loop()
 
   if ( thisHour != prevHour )
   {
-      // time to send a new report 
-      sent = false; 
+    // time to send a new report 
+    sent = false; 
   }
-  
-  // if message to send, and device has been up for at least 30 seconds, turn on the spot
+
+  // if message to send, and arduino has been up for at least 30 seconds, turn on the spot
   if ( (!sent) && ( millis() > 30000 ) )
   {
-    satConnect.begin(); // turn spot power on
+    if ( satConnect.state() == SatConnect::off )
+    {
+      satConnect.begin(); // turn spot power on
+    }
   }
 
   if (!sent)
@@ -782,8 +791,8 @@ void loop()
   formatOutputVector();
 
   Serial.print("Time = "); 
-  Serial.println( millis()/1000 );
-  Serial.print("Status = "); 
+  Serial.print( millis()/1000 );
+  Serial.print("  Status = "); 
   Serial.println( outputVector );
 #endif
 
@@ -791,6 +800,7 @@ void loop()
 
   prevLoopTime = thisLoopTime;
 }
+
 
 
 
