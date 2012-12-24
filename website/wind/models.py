@@ -8,3 +8,6 @@ class SensorReading( models.Model ):
 	maxWind  = models.FloatField()
 	avgWind  = models.FloatField()
 	minWind  = models.FloatField()
+	curWind  = models.FloatField()
+	temperature = models.FloatField()
+	voltage  = models.FloatField()
