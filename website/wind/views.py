@@ -24,7 +24,7 @@ def cloudMailInJson( request ):
   	now = datetime.datetime.now()
 
 	log =  "cloudMainInJson at %s \n" % now
-	log += "request method = %s\n" % request.method 
+	log += "request method = %s \n" % request.method 
 	log += "request body = %s \n\n" % request.body 
 
 	minWind = -1.0
