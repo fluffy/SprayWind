@@ -140,10 +140,10 @@ SatConnect::SatConnectState SatConnect::state()
       Serial.println( c , HEX ); 
     }
   } 
-  while ( millis() < lastTime + 150 ); // no data for 100 ms 
+  while ( millis() < lastTime + 150 ); // no data for 150 ms 
 
   static uint8_t statReq[3] = {  
-    0xAA, 0x03, 0x52                               };
+    0xAA, 0x03, 0x52                                 };
   serial.write( statReq, sizeof( statReq ) );
 
   lastTime = millis();
@@ -334,7 +334,7 @@ void  SatConnect::write( char* msg, int len )
   // send message to SPOT 
   serial.flush();
   static uint8_t sendReq[8] = { 
-    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01                               };
+    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01                                 };
   sendReq[1] = sizeof(sendReq) + len; // set the length of the message 
   serial.write( sendReq, sizeof( sendReq ) );
   serial.write( (uint8_t*)msg, len );
@@ -733,17 +733,19 @@ void loop()
     }
   }
 
-#if 1 // TODO remove 
+#if 0 // TODO remove 
   if ( sendNow == false )
   { 
-    if ( satConnect.state() == SatConnect::sentOnce)
+    if ( satConnect.state() == SatConnect::sentTwice)
     {
       DEBUG( "Turning off sat because have sent one message" );
       satConnect.end(); // turn power to spot off 
+      delay( 10000 );
+      sendNow = true;
     }
   }
 #endif  
-  
+
   if ( sendNow == false )
   { 
     if ( satConnect.ready() )
@@ -754,63 +756,68 @@ void loop()
   }
 
 #if 1
-  int state = int( satConnect.state() );
-  unsigned long time =  millis();
-
-  Serial.print( "Time " );
-  Serial.print( time );
-  Serial.print( ": " );
-  switch ( state )
+  unsigned long thisFifteenSec = prevLoopTime / 15000;
+  unsigned long prevFifteenSec = thisLoopTime / 15000;
+  if ( thisFifteenSec != prevFifteenSec ) // print out status ever 15 seconds 
   {
-    case SatConnect::off:      
-    {  
-      Serial.println( "Spot connect is off" ); 
-      break;
-    }
-    case SatConnect::poweringUp:      
-    {  
-      Serial.println( "Spot connect is poweringUp" ); 
-      break;
-    }
-    case SatConnect::readyToSend:      
-    {  
-      Serial.println( "Spot connect is readyToSend" ); 
-      break;
-    }
-    case SatConnect::haveMsgToSend:      
-    {  
-      Serial.println( "Spot has msg ready to send" ); 
-      break;
-    }
-    case SatConnect::findingPostion:      
-    {  
-      Serial.println( "Spot connect is findingPostion" ); 
-      break;
-    }
-    case SatConnect::sending:      
-    {  
-      Serial.println( "Spot connect is sending" ); 
-      break;
-    }
-    case SatConnect::sentOnce:      
-    {  
-      Serial.println( "Spot connect is sentOnce" ); 
-      break;
-    }
-    case SatConnect::sentTwice:      
-    {  
-      Serial.println( "Spot connect is sentTwice" ); 
-      break;
-    }
-    case SatConnect::errorNoGPS:      
-    {  
-      Serial.println( "Spot connect has error No GPS signal" ); 
-      break;
-    }
-    case SatConnect::errorNoSpot:      
-    {  
-      Serial.println( "Spot connect has error No Spot device" ); 
-      break;
+    int state = int( satConnect.state() );
+    unsigned long time =  millis();
+
+    Serial.print( "Time " );
+    Serial.print( time );
+    Serial.print( ": " );
+    switch ( state )
+    {
+      case SatConnect::off:      
+      {  
+        Serial.println( "Spot connect is off" ); 
+        break;
+      }
+      case SatConnect::poweringUp:      
+      {  
+        Serial.println( "Spot connect is poweringUp" ); 
+        break;
+      }
+      case SatConnect::readyToSend:      
+      {  
+        Serial.println( "Spot connect is readyToSend" ); 
+        break;
+      }
+      case SatConnect::haveMsgToSend:      
+      {  
+        Serial.println( "Spot has msg ready to send" ); 
+        break;
+      }
+      case SatConnect::findingPostion:      
+      {  
+        Serial.println( "Spot connect is findingPostion" ); 
+        break;
+      }
+      case SatConnect::sending:      
+      {  
+        Serial.println( "Spot connect is sending" ); 
+        break;
+      }
+      case SatConnect::sentOnce:      
+      {  
+        Serial.println( "Spot connect is sentOnce" ); 
+        break;
+      }
+      case SatConnect::sentTwice:      
+      {  
+        Serial.println( "Spot connect is sentTwice" ); 
+        break;
+      }
+      case SatConnect::errorNoGPS:      
+      {  
+        Serial.println( "Spot connect has error No GPS signal" ); 
+        break;
+      }
+      case SatConnect::errorNoSpot:      
+      {  
+        Serial.println( "Spot connect has error No Spot device" ); 
+        break;
+      }
     }
   }
 #endif
@@ -838,6 +845,7 @@ void loop()
 
   prevLoopTime = thisLoopTime;
 }
+
 
 
 
