@@ -143,7 +143,7 @@ SatConnect::SatConnectState SatConnect::state()
   while ( millis() < lastTime + 150 ); // no data for 100 ms 
 
   static uint8_t statReq[3] = {  
-    0xAA, 0x03, 0x52                             };
+    0xAA, 0x03, 0x52                               };
   serial.write( statReq, sizeof( statReq ) );
 
   lastTime = millis();
@@ -333,7 +333,7 @@ void  SatConnect::write( char* msg, int len )
   // send message to SPOT 
   serial.flush();
   static uint8_t sendReq[8] = { 
-    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01                             };
+    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01                               };
   sendReq[1] = sizeof(sendReq) + len; // set the length of the message 
   serial.write( sendReq, sizeof( sendReq ) );
   serial.write( (uint8_t*)msg, len );
@@ -676,7 +676,7 @@ void setup()
 
 void loop()
 {
-  static bool sendNow = false;
+  static bool sendNow = true;
   static unsigned long prevLoopTime;
   unsigned long thisLoopTime;
 
@@ -692,6 +692,7 @@ void loop()
   // if the spot has and error, shut it down 
   if ( satConnect.state() == SatConnect::errorNoSpot )
   {
+    DEBUG( "turned off sat due to error" );
     satConnect.end(); // turn power to spot off 
     sendNow = false; // if msg to be sent, wait till next hour
   }
@@ -701,8 +702,9 @@ void loop()
   {
     if (  millis() > 30000  )  // if message to send, and arduino has been up for at least 30 seconds, turn on the spot
     {
-      if ( (satConnect.state() == SatConnect::off)  )
+      if ( satConnect.state() == SatConnect::off  )
       {
+        DEBUG( "turned on sat because have messages to send" );
         satConnect.begin(); // turn spot power on
       }
     }
@@ -730,10 +732,22 @@ void loop()
     }
   }
 
+#if 1 // TODO remove 
+  if ( sendNow == false )
+  { 
+    if ( satConnect.state() == SatConnect::sentOnce)
+    {
+      DEBUG( "Turning off sat because have sent one message" );
+      satConnect.end(); // turn power to spot off 
+    }
+  }
+#endif  
+  
   if ( sendNow == false )
   { 
     if ( satConnect.ready() )
     {
+      DEBUG( "Turning off sat because done sending messages" );
       satConnect.end(); // turn power to spot off 
     }
   }
@@ -823,6 +837,7 @@ void loop()
 
   prevLoopTime = thisLoopTime;
 }
+
 
 
 
