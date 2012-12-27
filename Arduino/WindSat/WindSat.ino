@@ -49,10 +49,10 @@
 #define ONEWIRE_CRC8_TABLE 0
 #include <OneWire.h>
 
-#define DEBUG( X ) Serial.println( X ); Serial2.println( X ); delay( 20 );
-#define DEBUG_NOCR( X ) Serial.print( X ); Serial2.print( X ); delay( 20 );
-#define DEBUG_NOCR2( X,Y ) Serial.print( X,Y );Serial2.print( X,Y ); delay( 20 );
-#define DEBUG2( X, Y ) Serial.print( X ); Serial.println( Y ); Serial2.print( X ); Serial2.println( Y ); delay( 20 );
+#define DEBUG( X ) Serial.println( X ); Serial2.println( X ); 
+#define DEBUG_NOCR( X ) Serial.print( X ); Serial2.print( X ); 
+#define DEBUG_NOCR2( X,Y ) Serial.print( X,Y );Serial2.print( X,Y ); 
+#define DEBUG2( X, Y ) Serial.print( X ); Serial.println( Y ); Serial2.print( X ); Serial2.println( Y ); 
 
 const int windPin = 2;     // the number of the wind speed pin - must be 2 for interupt 0 
 const int batteryPin = 1;  // analog pin for battery voltage sense 
@@ -144,13 +144,13 @@ SatConnect::SatConnectState SatConnect::state()
     {
       c = serial.read();
       lastTime = millis();
-      DEBUG2("Flushing extra data: ", HEX ); 
+      DEBUG2("Flushing extra data: 0x", HEX ); 
     }
   } 
   while ( millis() < lastTime + 150 ); // no data for 150 ms 
 
   static uint8_t statReq[3] = {  
-    0xAA, 0x03, 0x52                                 };
+    0xAA, 0x03, 0x52                                           };
   serial.write( statReq, sizeof( statReq ) );
 
   lastTime = millis();
@@ -202,10 +202,6 @@ SatConnect::SatConnectState SatConnect::state()
   DEBUG(" ");
 #endif
 
-  // TODO 
-  // location 19 number of tries ?
-  // location 26, found GPS locations
-  // 31 - number of sataliates in view 
 
   if ( buf[0] != 0xAA )
   {
@@ -214,7 +210,9 @@ SatConnect::SatConnectState SatConnect::state()
     return s;
   }
 
-  //DEBUG2( "buf[7]=" , buf[7] );
+  DEBUG2( "spot status=" , buf[7] );
+  DEBUG2( "gps found=" , buf[26] );
+  DEBUG2( "num satalites=" , buf[31] );
 
   if ( buf[7] == 7 )
   {
@@ -344,7 +342,7 @@ void  SatConnect::write( char* msg, int len )
   // send message to SPOT 
   serial.flush();
   static uint8_t sendReq[8] = { 
-    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01                                 };
+    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01                                           };
   sendReq[1] = sizeof(sendReq) + len; // set the length of the message 
   serial.write( sendReq, sizeof( sendReq ) );
   serial.write( (uint8_t*)msg, len );
@@ -498,6 +496,7 @@ void updateBattery()
 int          tempatureX10=0; 
 typedef uint8_t DeviceAddr[8];
 DeviceAddr tempatureAddr;
+char tempatureType='-';
 OneWire  oneWireBus(10); // using digiital IO on pin 10
 
 
@@ -509,6 +508,7 @@ void copyAddr( uint8_t src[], uint8_t dst[] )
   }
 }
 
+// #define FAST_TEMP_CONV
 
 void setupTemp()
 {
@@ -521,21 +521,44 @@ void setupTemp()
   {
     if ( OneWire::crc8( addr, 7) != addr[7]) 
     {
-      DEBUG("BAD-CRC2");
+      DEBUG("1-Wire BAD-CRC2");
     }
     else
     {
-      if ( addr[0] == 0x28) 
+      if ( addr[0] == 0x10 ) 
+      {
+        DEBUG("Found DS18S20 Temperature on bus A");
+        copyAddr( addr, tempatureAddr);   
+        tempatureType = 'S';   
+      }
+      else if ( addr[0] == 0x28 ) 
       {
         DEBUG("Found DS18B20 Temperature on bus A");
-        copyAddr( addr, tempatureAddr);       
+        copyAddr( addr, tempatureAddr);   
+        tempatureType = 'B';   
       }
       else
       {
-        DEBUG2("Found one wire device of unknown address type: ",  addr[0] );
+        DEBUG2("Found 1-wire device of unknown address type: ",  addr[0] );
       }
     }
   }
+
+  if ( tempatureType == 'B' )
+  {
+    // program for fast or slow conversions 
+    oneWireBus.reset();
+    oneWireBus.select(tempatureAddr);
+    oneWireBus.write(0x4E,1);  // Program config register
+    oneWireBus.write(0x0,1);
+    oneWireBus.write(0x0,1);
+#ifdef  FAST_TEMP_CONV
+    oneWireBus.write(0x1F,1);
+#else
+    oneWireBus.write(0x7F,1);
+#endif
+  }
+
 }
 
 
@@ -545,8 +568,18 @@ void updateTemp( )
   oneWireBus.select(tempatureAddr);
   oneWireBus.write(0x44,1);  // do conversion 
 
-  delay(750);  // 750 ms for conversion time   
-
+  if (tempatureType =='B' )
+  {
+#ifdef FAST_TEMP_CONV
+    delay(100);
+#else
+    delay(800);  // at least 750 ms for conversion time   
+#endif
+  }
+  else
+  {
+    delay(800);  // at least 750 ms for conversion time   
+  }
   oneWireBus.reset();
   oneWireBus.select(tempatureAddr);    
   oneWireBus.write(0xBE);  // read results
@@ -558,15 +591,44 @@ void updateTemp( )
   }
   if ( OneWire::crc8( data, 8) != data[8] )
   {
-    DEBUG("BAD-CRC");
+    DEBUG("Tempature BAD-CRC");
     tempatureX10 = 0;
     return ; 
   }
+  
+  int tempatureX100 =0;
+  tempatureX10 =0;
 
-  int temp16x = (data[1]<<8) + data[0];
-  tempatureX10 = (temp16x*10) / 16;
+  if (tempatureType =='B' )
+  {
+    //DEBUG_NOCR( "config reg = 0x" );
+    //DEBUG_NOCR2( data[4],HEX );
+    //DEBUG(" ");
+#ifdef   FAST_TEMP_CONV
+    data[0] = data[0] & 0xF8;
+#endif
 
-  //DEBUG2( "Got tempature 10x = " , tempatureX10 );
+    int temp16x = (data[1]<<8) + data[0];    
+    tempatureX100 = (temp16x*25) / 4; 
+    tempatureX10 = (temp16x*5) / 8;
+  }
+  else if (tempatureType =='S' )
+  {
+    int temp2x = (data[1]<<8) + data[0];    
+    //DEBUG2( "count remain = " , data[6] );
+    int temp16x = ( temp2x & 0xFFFE )*8 - 4 + 16 - data[6];
+
+    tempatureX100 = (temp16x*25) / 4; 
+    tempatureX10 = temp16x * 5 / 8;
+  }
+
+  //DEBUG_NOCR( "Temp data = 0x" );
+  //DEBUG_NOCR2( data[1], HEX );
+  //DEBUG_NOCR( " " );
+  //DEBUG_NOCR2( data[0], HEX );
+  DEBUG2( " Got tempature 10x = " , tempatureX10 );
+
+  //DEBUG2( " Got tempature 100x = " , tempatureX100 );
 }
 
 
@@ -658,7 +720,7 @@ void setup()
   Serial3.begin(115200); // important - don't forget to setup the serial connection speed to the spot 
 
   delay( 500 ); 
-  DEBUG("Starting program");
+  DEBUG("Starting program - Version 0.1.1");
 
   // setup wind 
   pinMode(windPin, INPUT);
@@ -703,13 +765,17 @@ void loop()
 #endif 
 
   // if sat has been on for more than 30 minutes, turn it offf 
- if ( (satConnect.state() != SatConnect::off) && ( thisLoopTime > satOnTime+1800000 ) ) 
+  if ( (satConnect.state() != SatConnect::off) && ( thisLoopTime > satOnTime+1800000 ) ) 
   {
     DEBUG( "turned off sat due to being on too long" );
     satConnect.end(); // turn power to spot off 
     sendNow = false; // if msg to be sent, wait till next hour
   }
-  
+
+#if 0
+  sendNow = false;
+#endif
+
   // if message to send,
   if (sendNow)
   {
@@ -749,7 +815,7 @@ void loop()
   { 
     if ( satConnect.state() == SatConnect::sentTwice)
     {
-      DEBUG( "Turning off sat because have sent the message" );
+      DEBUG( "Turning off sat because have sent the message once" );
       satConnect.end(); // turn power to spot off 
       sendNow = true;
     }
@@ -834,6 +900,15 @@ void loop()
 
   updateWind();
 
+#if 0 // print out tempature ever 15 seconds 
+  unsigned long thisQuaterMin = prevLoopTime / 15000;
+  unsigned long prevQuarterMin = thisLoopTime / 15000;
+  if ( thisQuaterMin != prevQuarterMin )
+  {
+    updateTemp(); // does calling this too often warms up the sensor resulting in bogus measurements ?
+  }
+#endif
+
 #if 1 // print out current conditions ever 5 minutes 
   unsigned long thisFiveMin = prevLoopTime / 300000;
   unsigned long prevFiveMin = thisLoopTime / 300000;
@@ -855,6 +930,11 @@ void loop()
 
   prevLoopTime = thisLoopTime;
 }
+
+
+
+
+
 
 
 
