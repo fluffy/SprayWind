@@ -202,6 +202,11 @@ SatConnect::SatConnectState SatConnect::state()
   DEBUG(" ");
 #endif
 
+  // TODO 
+  // location 19 number of tries ?
+  // location 26, found GPS locations
+  // 31 - number of sataliates in view 
+
   if ( buf[0] != 0xAA )
   {
     DEBUG("put in errorNoSpot in state() call" );
