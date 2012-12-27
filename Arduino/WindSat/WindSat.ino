@@ -49,8 +49,10 @@
 #define ONEWIRE_CRC8_TABLE 0
 #include <OneWire.h>
 
-#define DEBUG( X ) Serial.print( "  " ); Serial.println( X ); delay( 20 );
-#define DEBUG2( X, Y ) Serial.print( "  " ); Serial.print( X ); Serial.println( Y ); delay( 20 );
+#define DEBUG( X ) Serial.println( X ); Serial2.println( X ); delay( 20 );
+#define DEBUG_NOCR( X ) Serial.print( X ); Serial2.print( X ); delay( 20 );
+#define DEBUG_NOCR2( X,Y ) Serial.print( X,Y );Serial2.print( X,Y ); delay( 20 );
+#define DEBUG2( X, Y ) Serial.print( X ); Serial.println( Y ); Serial2.print( X ); Serial2.println( Y ); delay( 20 );
 
 const int windPin = 2;     // the number of the wind speed pin - must be 2 for interupt 0 
 const int batteryPin = 1;  // analog pin for battery voltage sense 
@@ -119,10 +121,12 @@ SatConnect::SatConnectState SatConnect::state()
     return s;
   }
 
+#if 0  // can skip this and be more agresive about error recoevery
   if ( s == SatConnect::errorNoSpot )
   {
     return s;
   }
+#endif
 
   unsigned long now =  millis();
   if ( now < satLastTime + 500 ) // if state if less than 500 ms old, don't check for new state 
@@ -140,8 +144,7 @@ SatConnect::SatConnectState SatConnect::state()
     {
       c = serial.read();
       lastTime = millis();
-      Serial.print("Flushing extra data: "); 
-      Serial.println( c , HEX ); 
+      DEBUG2("Flushing extra data: ", HEX ); 
     }
   } 
   while ( millis() < lastTime + 150 ); // no data for 150 ms 
@@ -170,7 +173,7 @@ SatConnect::SatConnectState SatConnect::state()
     }
     if ( i == buf[1] )
     {
-      //Serial.println( "Read full packet" );
+      //DEBUG( "Read full packet" );
       break;
     }
   } 
@@ -179,27 +182,24 @@ SatConnect::SatConnectState SatConnect::state()
   if ( (i != buf[1]) && (i+2 != buf[1]) ) // for some reason always getting 2 bytes short on some firware
   {
     int timeout = millis()-lastTime;
-    Serial.println( "Problem reading packet buf" );
-    Serial.print( "buf[1]=" ); 
-    Serial.println( buf[1] );
-    Serial.print( "i=" ); 
-    Serial.println( i );
-    Serial.print( "time out=" ); 
-    Serial.println( timeout );
+    DEBUG( "Problem reading packet buf" );
+    DEBUG2( "buf[1]=", buf[1] );
+    DEBUG2( "i=", i );
+    DEBUG2( "time out=", timeout );
   }
 
 #if 1
-  //Serial.print( "i= 0x" ); 
-  //Serial.println( i , HEX );
-  Serial.print( "SPOT Status: " );
+  //DEBUG2( "i= 0x" ); 
+  //DEBUG( i , HEX );
+  DEBUG_NOCR( "SPOT Status: " );
   for ( int j=0; j<i; j++ )
   {
     int v=buf[j];
-    Serial.print(v/16, HEX);
-    Serial.print(v%16, HEX);
-    Serial.print(" ");
+    DEBUG_NOCR2(v/16, HEX);
+    DEBUG_NOCR2(v%16, HEX);
+    DEBUG_NOCR(" ");
   }
-  Serial.println(" ");
+  DEBUG(" ");
 #endif
 
   if ( buf[0] != 0xAA )
@@ -209,7 +209,7 @@ SatConnect::SatConnectState SatConnect::state()
     return s;
   }
 
-  //Serial.print( "buf[7]=" ); Serial.println( buf[7] );
+  //DEBUG2( "buf[7]=" , buf[7] );
 
   if ( buf[7] == 7 )
   {
@@ -249,27 +249,28 @@ void SatConnect::begin()
   s = SatConnect::off;
   //serial.begin( 115200 ); // TODO - move to here ?
 
-  Serial.println( "Starting up spot" );
+  DEBUG( "Starting up spot" );
   pinMode(pwrPin,OUTPUT);
   pinMode(onPin,OUTPUT);
   digitalWrite( pwrPin, LOW ); // turn off power to SPOT
   digitalWrite( onPin, HIGH ); // release the ON button for SPOT  
   delay( 1500 /* don't know how long this should be */ ); // wait for total power off for reset (500 seemed too low)
-  //Serial.println( "  about to turn on power to spot" );
+  //DEBUG( "  about to turn on power to spot" );
   digitalWrite( pwrPin, HIGH ); // turn on power to SPOT
-  //Serial.println( "  power is on" );
+  //DEBUG( "  power is on" );
   delay( 750 /* don't know how long this should be */ ); // wait for power to get stable 
-  //Serial.println( "  turing on " );
+  //DEBUG( "  turing on " );
   digitalWrite( onPin, LOW ); // press the ON button to power up SPOT
   delay( 4100 /* TODO - how long */ ); // wait for turn on and go into discovery mode TOOD - check if really need to go bluetooth discovery mode 
-  //Serial.println( "  waiting to go on " );
+  //DEBUG( "  waiting to go on " );
   digitalWrite( onPin, HIGH ); // release the ON button for SPOT - it is still on 
-  Serial.println( "   spot is on" );
+  DEBUG( "   spot is on" );
 
   //unsigned long  startTime = millis();
   //unsigned long  charTime = millis();
 
-  Serial.println( "Wait for SPOT self check and flush serial data" );
+  DEBUG( "Wait for SPOT self check and flush serial data" );
+  DEBUG_NOCR( "Flush: " );
   unsigned long lastTime = millis();
   do
   {
@@ -280,15 +281,15 @@ void SatConnect::begin()
       //charTime = millis();
 
       int v=c;
-      Serial.print(v/16, HEX);
-      Serial.print(v%16, HEX);
-      Serial.print(" ");
+      DEBUG_NOCR2(v/16, HEX);
+      DEBUG_NOCR2(v%16, HEX);
+      DEBUG_NOCR(" ");
     }
   } 
   while ( millis() < lastTime+3000 ); // flush for at least 2.5 seconds 
-  Serial.println( "  done flushing" );
+  DEBUG( "  done flushing" );
 
-  //Serial.print( "flush time was " ); Serial.println( charTime - startTime );
+  //DEBUG2( "flush time was " , charTime - startTime );
 
   s = SatConnect::poweringUp;   
 }
@@ -303,17 +304,17 @@ void SatConnect::end()
     return;  
   }
 
-  Serial.println( "Shuting down spot" );
+  DEBUG( "Shuting down spot" );
   digitalWrite( onPin, LOW ); // press the ON button to power off SPOT
   delay( 2200  );   // 1500 too short 
-  Serial.println( "  waiting to go off " );
+  DEBUG( "  waiting to go off " );
   digitalWrite( onPin, HIGH ); // release the ON button for SPOT - should be off now  
   delay( 1500 /* TODO - how long */ );   
   digitalWrite( pwrPin, LOW ); // turn off the power to SPOT
   delay( 1000 ); // make power stays off of a bit 
 
   s = SatConnect::off;
-  Serial.println( "   spot is off" );
+  DEBUG( "   spot is off" );
 }
 
 
@@ -356,7 +357,7 @@ void  SatConnect::write( char* msg, int len )
     }
     if ( i == buf[1] )
     {
-      //Serial.println( "Read full packet" );
+      //DEBUG( "Read full packet" );
       break;
     }
   } 
@@ -365,27 +366,23 @@ void  SatConnect::write( char* msg, int len )
   if ( i != buf[1] )
   {
     int timeout = millis()-lastTime;
-    Serial.println( "Problem reading packet buf after write" );
-    Serial.print( "buf[1]=" ); 
-    Serial.println( buf[1] );
-    Serial.print( "i=" ); 
-    Serial.println( i );
-    Serial.print( "time out=" ); 
-    Serial.println( timeout );
+    DEBUG( "Problem reading packet buf after write" );
+    DEBUG2( "buf[1]=", buf[1] );
+    DEBUG2( "i=", i );
+    DEBUG2( "time out=", timeout );
   }
 
 #if 1
-  //Serial.print( "i= 0x" ); 
-  //Serial.println( i , HEX );
-  Serial.print( "SPOT data after write: " );
+  //DEBUG2( "i=" , i );
+  DEBUG_NOCR( "SPOT data after write: " );
   for ( int j=0; j<i; j++ )
   {
     int v=buf[j];
-    Serial.print(v/16, HEX);
-    Serial.print(v%16, HEX);
-    Serial.print(" ");
+    DEBUG_NOCR2(v/16, HEX);
+    DEBUG_NOCR2(v%16, HEX);
+    DEBUG_NOCR(" ");
   }
-  Serial.println(" ");
+  DEBUG(" ");
 #endif
 
   s = SatConnect::haveMsgToSend;
@@ -458,22 +455,19 @@ void updateWind()
   if ( curMetersPer10s > maxMetersPer10s ) maxMetersPer10s = curMetersPer10s;
   if ( curMetersPer10s < minMetersPer10s ) minMetersPer10s = curMetersPer10s;
 
-  //Serial.print( "dTime = " ); 
-  //Serial.println( dTime );
+  //DEBUG2( "dTime = " , dTime );
 
-  //Serial.print( "dCount = " ); 
-  //Serial.println( dCount );
+  //DEBUG2( "dCount = " , dCount );
 
-  //Serial.print( "Current = " ); 
-  //Serial.println( curMetersPer10s );
+  //DEBUG2( "Current = " , curMetersPer10s );
 
   dTime = (time - windStartTime) / 100; // in 10th of seconds 
   dCount = count - windStartCount;
   unsigned long avgCountPer10s =  dCount*100 / dTime; // 100 is 10 for per 10 seconds , and 10 for time is in 10ths of seconds
   avgMetersPer10s = (int)avgCountPer10s + ( (int)avgCountPer10s / 8 ); // sketchy conversion that looks about right 
 
-  //Serial.print( "Avg = " ); 
-  //Serial.println( avgMetersPer10s );
+  //DEBUG2( "Avg = " ); 
+  //DEBUG( avgMetersPer10s );
 
   windPrevTime = time;
   windPrevCount = count;
@@ -522,15 +516,10 @@ void setupTemp()
   {
     if ( OneWire::crc8( addr, 7) != addr[7]) 
     {
-      Serial.println("BAD-CRC2");
+      DEBUG("BAD-CRC2");
     }
     else
     {
-      if ( addr[0] == 0x10) 
-      {
-        DEBUG("Found DS18S20 Temperature on bus A");
-        copyAddr( addr, tempatureAddr);       
-      }
       if ( addr[0] == 0x28) 
       {
         DEBUG("Found DS18B20 Temperature on bus A");
@@ -538,7 +527,7 @@ void setupTemp()
       }
       else
       {
-        DEBUG2("Found one wire device of type address: ",  addr[0] );
+        DEBUG2("Found one wire device of unknown address type: ",  addr[0] );
       }
     }
   }
@@ -564,7 +553,7 @@ void updateTemp( )
   }
   if ( OneWire::crc8( data, 8) != data[8] )
   {
-    Serial.println("BAD-CRC");
+    DEBUG("BAD-CRC");
     tempatureX10 = 0;
     return ; 
   }
@@ -646,7 +635,7 @@ void formatOutputVector()
   outputVector[i++] = 0;
   if (i >= sizeof(outputVector) )
   {
-    Serial.println("buffer overlow in format output vector");
+    DEBUG("buffer overlow in format output vector");
     DEBUG2( "i=" , i );
     while (1);
   }
@@ -660,10 +649,11 @@ void formatOutputVector()
 void setup()
 {
   Serial.begin(19200); 
+  Serial2.begin(19200); 
   Serial3.begin(115200); // important - don't forget to setup the serial connection speed to the spot 
 
   delay( 500 ); 
-  Serial.println("Starting program");
+  DEBUG("Starting program");
 
   // setup wind 
   pinMode(windPin, INPUT);
@@ -683,7 +673,8 @@ void loop()
 {
   static bool sendNow = true;
   static unsigned long prevLoopTime=0;
-  unsigned long thisLoopTime;
+  static unsigned long satOnTime=0;
+  unsigned long thisLoopTime=0;
 
   thisLoopTime = millis();
 
@@ -696,6 +687,7 @@ void loop()
     sendNow = true; 
   }
 
+#if 0  // don't do this and try and receover from error  
   // if the spot has and error, shut it down 
   if ( satConnect.state() == SatConnect::errorNoSpot )
   {
@@ -703,7 +695,16 @@ void loop()
     satConnect.end(); // turn power to spot off 
     sendNow = false; // if msg to be sent, wait till next hour
   }
+#endif 
 
+  // if sat has been on for more than 30 minutes, turn it offf 
+ if ( (satConnect.state() != SatConnect::off) && ( thisLoopTime > satOnTime+1800000 ) ) 
+  {
+    DEBUG( "turned off sat due to being on too long" );
+    satConnect.end(); // turn power to spot off 
+    sendNow = false; // if msg to be sent, wait till next hour
+  }
+  
   // if message to send,
   if (sendNow)
   {
@@ -713,6 +714,7 @@ void loop()
       {
         DEBUG( "turned on sat because have messages to send" );
         satConnect.begin(); // turn spot power on
+        satOnTime = millis();
       }
     }
   }
@@ -729,10 +731,8 @@ void loop()
 
       resetWind();
 
-      Serial.print("Sending Message len="); 
-      Serial.print( strlen(outputVector) ); 
-      Serial.print(" "); 
-      Serial.println( outputVector );
+      DEBUG2("Sending Message len=", strlen(outputVector) ); 
+      DEBUG2("msg=", outputVector );
 
       satConnect.write( outputVector, strlen(outputVector) );
       sendNow = false;
@@ -744,9 +744,8 @@ void loop()
   { 
     if ( satConnect.state() == SatConnect::sentTwice)
     {
-      DEBUG( "Turning off sat because have sent one message" );
+      DEBUG( "Turning off sat because have sent the message" );
       satConnect.end(); // turn power to spot off 
-      delay( 10000 );
       sendNow = true;
     }
   }
@@ -769,64 +768,64 @@ void loop()
     int state = int( satConnect.state() );
     unsigned long time =  millis();
 
-    Serial.print( "Time " );
-    Serial.print( time );
-    Serial.print( ": " );
+    DEBUG_NOCR( "Time " );
+    DEBUG_NOCR( time );
+    DEBUG_NOCR( ": " );
     switch ( state )
     {
       case SatConnect::off:      
       {  
-        Serial.println( "Spot connect is off" ); 
+        DEBUG( "Spot connect is off" ); 
         break;
       }
       case SatConnect::poweringUp:      
       {  
-        Serial.println( "Spot connect is poweringUp" ); 
+        DEBUG( "Spot connect is poweringUp" ); 
         break;
       }
       case SatConnect::readyToSend:      
       {  
-        Serial.println( "Spot connect is readyToSend" ); 
+        DEBUG( "Spot connect is readyToSend" ); 
         break;
       }
       case SatConnect::haveMsgToSend:      
       {  
-        Serial.println( "Spot has msg ready to send" ); 
+        DEBUG( "Spot has msg ready to send" ); 
         break;
       }
       case SatConnect::findingPostion:      
       {  
-        Serial.println( "Spot connect is findingPostion" ); 
+        DEBUG( "Spot connect is findingPostion" ); 
         break;
       }
       case SatConnect::sending:      
       {  
-        Serial.println( "Spot connect is sending" ); 
+        DEBUG( "Spot connect is sending" ); 
         break;
       }
       case SatConnect::sentOnce:      
       {  
-        Serial.println( "Spot connect is sentOnce" ); 
+        DEBUG( "Spot connect is sentOnce" ); 
         break;
       }
       case SatConnect::sentTwice:      
       {  
-        Serial.println( "Spot connect is sentTwice" ); 
+        DEBUG( "Spot connect is sentTwice" ); 
         break;
       }
       case SatConnect::errorNoGPS:      
       {  
-        Serial.println( "Spot connect has error No GPS signal" ); 
+        DEBUG( "Spot connect has error No GPS signal" ); 
         break;
       }
       case SatConnect::errorNoSpot:      
       {  
-        Serial.println( "Spot connect has error No Spot device" ); 
+        DEBUG( "Spot connect has error No Spot device" ); 
         break;
       }
     }
   }
-#endif
+#endif 
 
   updateWind();
 
@@ -836,14 +835,14 @@ void loop()
   if ( thisFiveMin != prevFiveMin )
   {
     updateBattery();
-    updateTemp(); // calling this too often warms up the sensor resulting in bogus measurements
+    updateTemp(); // does calling this too often warms up the sensor resulting in bogus measurements ?
 
     formatOutputVector();
 
-    Serial.print("Time = "); 
-    Serial.print( millis()/1000 );
-    Serial.print("  Status = "); 
-    Serial.println( outputVector );
+    DEBUG_NOCR("Time = "); 
+    DEBUG( millis()/1000 );
+    DEBUG_NOCR("  Status = "); 
+    DEBUG( outputVector );
   }
 #endif
 
