@@ -91,10 +91,10 @@ This is optional but convenent for debuggin if things are not
 working. All the debug informationm printed from the Arduino is
 recorded on a flash card in the logger. Currenly using an OpenLog
 <https://www.sparkfun.com/products/9530> to record all the debug
-info. TODO - file size?
+info. It produces about 55 kB/hour. (0.5 GB / year ). 
 
 Right now the serial is configured for 19.2 kbps so the the CONFIG.TXT
-files for the open log looks like: TODO
+files for the open log looks like: 19200,26,3,0
 
 
 ## Spot Interface
