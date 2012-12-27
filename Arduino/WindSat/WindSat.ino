@@ -150,7 +150,7 @@ SatConnect::SatConnectState SatConnect::state()
   while ( millis() < lastTime + 150 ); // no data for 150 ms 
 
   static uint8_t statReq[3] = {  
-    0xAA, 0x03, 0x52                                           };
+    0xAA, 0x03, 0x52                                             };
   serial.write( statReq, sizeof( statReq ) );
 
   lastTime = millis();
@@ -342,7 +342,7 @@ void  SatConnect::write( char* msg, int len )
   // send message to SPOT 
   serial.flush();
   static uint8_t sendReq[8] = { 
-    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01                                           };
+    0xAA, 0x08, 0x26, 0x01, 0x00, 0x01, 0x00, 0x01                                             };
   sendReq[1] = sizeof(sendReq) + len; // set the length of the message 
   serial.write( sendReq, sizeof( sendReq ) );
   serial.write( (uint8_t*)msg, len );
@@ -595,7 +595,7 @@ void updateTemp( )
     tempatureX10 = 0;
     return ; 
   }
-  
+
   int tempatureX100 =0;
   tempatureX10 =0;
 
@@ -930,6 +930,7 @@ void loop()
 
   prevLoopTime = thisLoopTime;
 }
+
 
 
 
