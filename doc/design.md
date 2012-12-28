@@ -75,6 +75,9 @@ Arduino would work. If moving to a normal Arduino, I would put the
 debug information on a soft serial line and use the main UART to talk
 to the SPOT.
 
+You need to install the OneWire library from 
+http://www.pjrc.com/teensy/td_libs_OneWire.html
+
 The reed switch on the anemometer generates an interrupt which
 increments a counter. Approximately every 10 seconds, this counter is
 read to compute the current wind speed which is then used to update
