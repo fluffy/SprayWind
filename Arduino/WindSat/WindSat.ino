@@ -486,7 +486,8 @@ void updateBattery()
 {
   int v = analogRead( batteryPin ); // 0-5 v scaled to 0-1023 
 
-  voltageX100 = 80 + v + (v>>1) + (v>>5); 
+  //voltageX100 = 80 + v + (v>>1) + (v>>5); // this is when power goes thgrough diode 
+  voltageX100 = v + (v>>1) + (v>>5); 
 }
 
 
@@ -720,7 +721,7 @@ void setup()
   Serial3.begin(115200); // important - don't forget to setup the serial connection speed to the spot 
 
   delay( 500 ); 
-  DEBUG("Starting program - Version 0.1.1");
+  DEBUG("Starting program - Version 0.1.2");
 
   // setup wind 
   pinMode(windPin, INPUT);
