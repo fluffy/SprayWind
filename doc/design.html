@@ -1,0 +1,63 @@
+<h1 id="overview">Overview:</h1>
+<p>The systme uses an Arduino to sense the wind and tempature and then connects to a SPOT Connect to send it up to a satalite. This results in an email sent to cloudmailin which then does an HTTP POST to the website with the email data. The website is a django app. The basic block diagram of the modules is shown below.</p>
+<div class="figure">
+<img src="block-diag.png" title="Block Diagram" alt="Block Diagram" /><p class="caption">Block Diagram</p>
+</div>
+<h2 id="wind-sensor">Wind Sensor</h2>
+<p>The wind sensor has a reed switch that connects the circuit once per revolution.</p>
+<h2 id="interface-board">Interface Board</h2>
+<p>The inteface board conencts the rest of the stuff up to the Arduino. It provide a 4.7 kOhm resistor for the 1-wire bus to the tempature sensor. It has a 10k pull up to provide power to the anemometer read switch. It connects serial port TBD to SPOT board. It splits the battery voltage roughly in thrid and monitors that.</p>
+<p>Schematic is:</p>
+<div class="figure">
+<img src="schematic.png" title="Schematic" alt="schematic.png" /><p class="caption">schematic.png</p>
+</div>
+<p>Photo is:</p>
+<div class="figure">
+<img src="interface-card.png" title="Interface Card" alt="interface-card.png" /><p class="caption">interface-card.png</p>
+</div>
+<p>Jumper layout is:</p>
+<h2 id="power-supply">Power Supply</h2>
+<p>Currently using a &quot;car battery&quot;. Actually it is battery that supports &quot;deep cycles&quot; desinged more for boats and RVs than for starting cars.</p>
+<p>Need to look into hwo much power is used at variso times. It looks like roughly speaking, when SPOT is not in use, this consumes around 100 mA. This is very high and could be substantially reduced. The SPOT looks like it consuems roudly another 100 mA on averager for 20 minutes each time a messages is sent. It is higher when the GPS is trying to locate the position. It goes very high (perhaps 800 mA ?) for a breif time when the messages is being trasmitted.</p>
+<p>The voltage divider circuit does not have any over pwoer protection (note, add zeneir diod on next design) so the input voltage must not go over TBD volts. In adition the power supply on the Arduion Mega is limited to 20 volts.</p>
+<h2 id="arduino">Arduino</h2>
+<p>The system is using an Arduino Mega 2560 cuase that was what was lying around and it has muple serial ports but probably a normal Arduino would work. If moving to a normal Arduino, I would put the debug informatio on a softserial line and use the main UART to talk to the SPOT.</p>
+<p>The reed switch on the anemometer generates and interupt which icrements a counter. Aproximately every 10 seconds, this counter is read to compute the current wind speed which is then used to update the min and max wind. The counter is also used to compute an average wind over a one hour period.</p>
+<p>The battery voltage and current tempratuer are comptuted ever 5 minutes. [Note the current system is createing tempature measurements that are way off].</p>
+<p>Every hour, the system gets the current values, forms them into a JSON message and sends it using the SPOT. If the SPOT does not manage to send the messages within 30 minutes, it gets shutdwon as this is probably some sort of weird error state on the SPOT.</p>
+<p>The JSON messages is a single JSON object that contains an array named &quot;v&quot; that has 6 floating point values. The first is the current wind speed in m/s, the second the minimuim over last hour, the next the averge, then the maximuim. The next value is the tempature in degrees C followed by the battery voltage in volts. An example JSON object is</p>
+<p>{&quot;v&quot;:[ 0.0, 0.0, 0.0, 0.0,-10.4,12.38]}</p>
+<h2 id="data-log">Data Log</h2>
+<p>This is optional but convenent for debuggin if things are not working. All the debug informationm printed from the Arduino is recorded on a flash card in the logger. Currenly using an OpenLog <a href="https://www.sparkfun.com/products/9530"><code class="url">https://www.sparkfun.com/products/9530</code></a> to record all the debug info. It produces about 55 kB/hour. (0.5 GB / year ).</p>
+<p>Right now the serial is configured for 19.2 kbps so the the CONFIG.TXT files for the open log looks like: 19200,26,3,0</p>
+<h2 id="spot-interface">Spot Interface</h2>
+<p>I'm using the SatUplink Shield from sparkfun [https://www.sparkfun.com/products/11088]. This provides the varios voltages the spot requires along with a way to turn them on and off.</p>
+<h2 id="spot-connect">Spot Connect</h2>
+<p>Before you take apart a spot, make sure it works with you phone, you have the website and account set up and working and have upgraded to latest firmware on the spot.</p>
+<p>One of the key problems with the SPOT system is that there is no acknoledgment that the messages SPOT sent was received. This makes it much harder to use and make it unclear how many times the messages should be retrasmitted. It would be nice to reduce the number of retransmitions as this consumes lots of power.</p>
+<h2 id="spot-website-and-emai-gateway">Spot Website and Emai Gateway</h2>
+<p>The findmespot website is configured to send messages from my SPOT to the email gateway at http://www.cloudmailin.com/ which is confiugred to use the JSON format to post to the django website. [Note: some trivial python code could just access an email account directly and skip cloudmailin out of the picture. Plan to do that Real Soon Now.]</p>
+<h2 id="website">Website</h2>
+<p>The website is written in python using django. I am using webfaction to host it as I find the cost of doing it there way cheaper than GAE, Heroku, Rackspace, or AWS. The website is using postgress for the database but pretty much anything would work.</p>
+<h2 id="connection-on-the-box">Connection on the box</h2>
+<div class="figure">
+<img src="box.png" title="Box" alt="box" /><p class="caption">box</p>
+</div>
+<div class="figure">
+<img src="connectors.png" title="Connectors" alt="connectors" /><p class="caption">connectors</p>
+</div>
+<h1 id="cost-of-system">Cost of system</h1>
+<p>Very aproximate costs in US$ as of Dec 2012</p>
+<p>Equipment SPOT Device: 150 SatUplink Sheild: 21 Shipping: 25 Arduino Mega 2560: 60 Proto Sheild: 20 Tempature Sensor: 5<br />Misc parts: 25 Battery: 100 Things I forgot: 60 OpenLog: 26 FlashCard: 5 Total: about $500</p>
+<p>Anual Fees Spot Account: 100 Spot Messages (1/hour): 876 Domain Name: 15 DNS: 30 Website: 120 CloudMailIn: 108</p>
+<p>Total: 1249 ($3.42 / day - less than starbucks)</p>
+<h1 id="the-next-version">The next version:</h1>
+<p>Desing for low power. Don't use arduino power supplies. Include a real time clock with alarm function to wake up the arduino so it can be put in sleep mode. Do all 3 volt design. Make sure sleep mode works. Remove all the LEDs from spot and arduino.</p>
+<p>Think about input power protection battery sense circuit.</p>
+<p>Think about local status reporting.</p>
+<p>Real time clock to sync reporting on the hour and reduce reporting at night.</p>
+<p>Figure out solar power.</p>
+<p>Use magnets for mouting boards to box ?</p>
+<p>Add local display of wind / voltage ?</p>
+<p>Use soft serial out for debug information</p>
+<p>Consider adding logging to SD card</p>

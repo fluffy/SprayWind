@@ -25,9 +25,12 @@ monitors that.
 
 Schematic is:
 
+![schematic.png](schematic.png "Schematic")
+
 
 Photo is:
 
+![interface-card.png](interface-card.png "Interface Card")
 
 Jumper layout is:
 
@@ -134,6 +137,9 @@ database but pretty much anything would work.
 
 ## Connection on the box
 
+![box](box.png "Box")
+
+![connectors](connectors.png "Connectors")
 
 
 # Cost of system
