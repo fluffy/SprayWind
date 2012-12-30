@@ -64,7 +64,7 @@ const int spotOnPin = 7;  /* controlls the "on" button on the SPOT to turn the d
 
 
 // ========================================================================
-// Stuff for Spot Connect Satalite code 
+// Stuff for Spot Connect Satellite code 
 
 class SatConnect
 {
@@ -212,7 +212,7 @@ SatConnect::SatConnectState SatConnect::state()
 
   DEBUG2( "spot status=" , buf[7] );
   DEBUG2( "gps found=" , buf[26] );
-  DEBUG2( "num satalites=" , buf[31] );
+  DEBUG2( "num satellite=" , buf[31] );
 
   if ( buf[7] == 7 )
   {
@@ -720,7 +720,7 @@ void setup()
   Serial2.begin(19200); 
   Serial3.begin(115200); // important - don't forget to setup the serial connection speed to the spot 
 
-  delay( 500 ); 
+  delay( 1500 ); 
   DEBUG("Starting program - Version 0.1.2");
 
   // setup wind 
