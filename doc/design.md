@@ -252,3 +252,8 @@ night.
 * All cables are things you can buy - no soldering DIN connectors. Way to update firmware without removing board from box. Perhaps have all the connectors soldered main board instead of jumper wired to them. 
 
 
+On the wires going to wind and external temp, design some input
+protrection esd etc. Perhaps 1k resitors then then insisde that a pair
+of caliming shockey diodes to gnd and vcc - does arduiinon already do
+this ?
+
