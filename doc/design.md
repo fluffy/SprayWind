@@ -233,3 +233,6 @@ Use soft serial out for debug information
 
 Consider adding logging to SD card 
 
+All cables are things you can buy - no soldering DIN connectors. Way to update firmware without removing board from box. Perhaps have all the conenctors soldered main board instead of jumper wired to them. 
+
+
