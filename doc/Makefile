@@ -1,9 +1,20 @@
 
 
-all: design.html
+SRC  := $(wildcard *.md)
+PNG  := $(wildcard *.png)
+
+HTML := $(patsubst %.md,%.html,$(SRC))
+PDF  := $(patsubst %.md,%.pdf,$(SRC))
 
 
-design.html: design.md
-	pandoc  design.md  -o design.html --self-contained
+all: $(HTML) $(PDF)
+
+clean:
+	rm -f $(HTML) $(PDF)
 
 
+%.html: %.md $(PNG)
+	pandoc -t html5 $< -o $@
+
+%.pdf: %.html $(PNG)
+	wkpdf -p letter -s $< -o $@
