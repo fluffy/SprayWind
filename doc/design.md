@@ -19,11 +19,9 @@ cheap too :-)
 ## Temperature Sensor
 
 Right now the temperatures are not even close to correct and report
-way too high. Part of this is the sensor is in the box but even
-without that I seem to be having problems with sensors. I have tired
+way too high.  I have tired
 both the DS18B20 and DS18S20 - I don't have a heat sink attached but
-they seem to report too high (by a degree to two at room temperature
-and much much more at -25 C )
+they seem to report too high.
 
 
 ## Interface Board
@@ -59,12 +57,24 @@ consumes roughly another 100 mA on average for 20 minutes each time a
 messages is sent. It is higher when the GPS is trying to locate the
 position. It goes very high for a brief time when the messages is
 being transmitted and looks like the consumes around 800 mA for 2.7
-seconds. ALl of these currents measured at a roughly 12 volt supply.
+seconds. All of these measured at a roughly 12.5 volt supply.
 
 The voltage divider circuit does not have any over power protection
 (note, add zener diode on next design) so the input voltage must not
-go over 15 volts. In addition the power supply on the Arduino Mega is
-limited to 20 volts.
+go over 15 volts. 
+
+The schematic for the power supply is:
+
+![power-schematic.png](power-schematic.png)
+
+An image of the final box is:
+
+![power-box.png](power-box.png)
+
+The following shows the power usage spike when the SPOT device
+transmits a message:
+
+![power-usage.png](power-usage.png)
 
 
 ## Arduino
@@ -86,7 +96,7 @@ wind over a one hour period.
 
 The battery voltage and current temperature are computed ever 5
 minutes. [Note the current system is creating temperature measurements
-that are way off].
+that seem way off].
 
 Every hour, the system gets the current values, formats them into a
 JSON message and sends it using the SPOT. If the SPOT does not manage
@@ -171,68 +181,74 @@ The connectors look like:
 
 ![connectors](connectors.png "Connectors")
 
-The red and black banana plugs connect to the + / - (respectively) of
-the battery - Don't hook them up backwards or everything will
-explode. The BNC cable connects to the anemometer (outside is
-ground). The RCA jack has the debug serial data - outside is ground
-and inside is 19.2kbps 8N1 serial data at 5V TTL voltage levels.
+The circular connector provides power and current / voltage sense
+lines. The BNC cable connects to the anemometer (outside is ground).
+The RCA jack has the debug serial data - outside is ground and inside
+is 19.2 kbps 8N1 serial data at 5V TTL voltage levels. The 1/4 inch
+stereo plug provides the 1-wire connection for the thermometer. Sleeve
+is ground, tip is +5 V, and ring is the 1-wire bus.
 
 
 # Cost of system
 
 Very approximate costs in US$ as of Dec 2012
 
-Equipment
-SPOT Device: 150
-SatUplink Shield: 21
-Shipping: 25
-Arduino Mega 2560: 60
-Proto Shield: 20
-Temperature Sensor: 5  
-Misc parts: 25
-Battery: 100 
-Things I forgot: 60
-OpenLog: 26
-FlashCard: 5
+Equipment:
+
+1. SPOT Device: 150
+2. SatUplink Shield: 21
+2. Shipping: 25
+2. Arduino Mega 2560: 60
+2. Proto Shield: 20
+2. Temperature Sensor: 5  
+2. Misc parts: 25
+2. Battery: 100 
+2. OpenLog: 26
+2. FlashCard: 5
+2. Power Supply: 10 
+2. Things I forgot: ??
+
 Total: about $500
 
-Anual Fees
-Spot Account: 100
-Spot Messages (1/hour): 876
-Domain Name: 15
-DNS: 30 
-Website: 120 
-CloudMailIn: 108
+Annual Fees:
 
-Total: 1249
-($3.42 / day - less than Starbucks) 
+1. Spot Account: 100
+2. Spot Messages (1/hour): 876
+2. Domain Name: 15
+2. DNS: 30 
+2. Website: 120 
+2. CloudMailIn: 108
+
+Total: 1249 ($3.42 / day - less than Starbucks) 
 
 
 
 # The next version:
 
-Design for low power. Don't use arduino power supplies.  Include a
+Things to consider for the "next" version:
+
+* Design for low power. Don't use arduino power supplies.  Include a
 real time clock with alarm function to wake up the arduino so it can
 be put in sleep mode. Do all 3 volt design. Make sure sleep mode
 works. Remove all the LEDs from spot and arduino.
 
-Think about input power protection battery sense circuit.
+* Think about input power protection battery sense circuit.
 
-Think about local status reporting.
+* Think about local status reporting.
 
-Real time clock to sync reporting on the hour and reduce reporting at
+* Real time clock to sync reporting on the hour and reduce reporting at
 night.
 
-Figure out solar power.
+* Figure out solar power.
 
-Use magnets for mounting boards to box ?
+* Use magnets for mounting boards to box ?
 
-Add local display of wind / voltage ?
+* Add local display of wind / voltage ?
 
-Use soft serial out for debug information
+* Use soft serial out for debug information
 
-Consider adding logging to SD card 
+* Consider adding logging to SD card 
 
-All cables are things you can buy - no soldering DIN connectors. Way to update firmware without removing board from box. Perhaps have all the conenctors soldered main board instead of jumper wired to them. 
+* All cables are things you can buy - no soldering DIN connectors. Way to update firmware without removing board from box. Perhaps have all the connectors soldered main board instead of jumper wired to them. 
 
 
