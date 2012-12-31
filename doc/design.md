@@ -233,3 +233,5 @@ Use soft serial out for debug information
 
 Consider adding logging to SD card 
 
+On the wires going to wind and external temp, design some input protrection esd etc. Perhaps 1k resitors then then insisde that a pair of caliming shockey diodes to gnd and vcc - does arduiinon already do this ?
+
