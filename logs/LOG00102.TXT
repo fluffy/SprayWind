@@ -1,0 +1,45 @@
+Starting program
+Scanning 1-wire Bus A ...
+Found DS18B20 Temperature on bus A
+Time 15528: Spot connect is off
+config reg=31
+Temp data = 0x1 80 Got tempature 10x = 240
+Time 30654: Spot connect is off
+config reg=31
+Temp data = 0x1 88 Got tempature 10x = 245
+Time 45779: Spot connect is off
+config reg=31
+Temp data = 0x1 80 Got tempature 10x = 240
+Time 60905: Spot connect is off
+config reg=31
+Temp data = 0x1 88 Got tempature 10x = 245
+Time 76030: Spot connect is off
+config reg=31
+Temp data = 0x1 88 Got tempature 10x = 245
+Time 91156: Spot connect is off
+config reg=31
+Temp data = 0x1 88 Got tempature 10x = 245
+Time 106281: Spot connect is off
+config reg=31
+Temp data = 0x1 88 Got tempature 10x = 245
+Time 121407: Spot connect is off
+config reg=31
+Temp data = 0x1 88 Got tempature 10x = 245
+Time 135031: Spot connect is off
+config reg=31
+Temp data = 0x1 88 Got tempature 10x = 245
+Time 150158: Spot connect is off
+config reg=31
+Temp data = 0x1 88 Got tempature 10x = 245
+Time 165283: Spot connect is off
+config reg=31
+Temp data = 0x1 88 Got tempature 10x = 245
+Time 180408: Spot connect is off
+config reg=31
+Temp data = 0x1 88 Got tempature 10x = 245
+Time 195534: Spot connect is off
+config reg=31
+Temp data = 0x1 90 Got tempature 10x = 250
+Time 210660: Spot connect is off
+config reg=31
+Temp data = 0x1 88 Got tempature 10x = 245
