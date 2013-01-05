@@ -1,0 +1,10 @@
+*~
+*.pyc
+settings.backup
+settings.py
+foo.html
+bar.html
+foobar.html
+
+
+
