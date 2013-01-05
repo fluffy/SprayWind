@@ -6,9 +6,10 @@ Remote wind and weather sensor that can use a satellite link to send information
 
 ## Overview
 
-This project uses an anemometer to meassure the wind. An arduino counts the pulses from the anemometer to compute a wind speed. It then uses a Spot Connect device to transmit this wind and temperature information to the web via the globalstar satalite system. This generates and email that drives a django based website. All the code is open source and we look forward to hearing about what other people end up doing with this system.
+This project uses an anemometer to meassure the wind. An arduino counts the pulses from the anemometer to compute a wind speed. It then uses a Spot Connect device to transmit this wind and temperature information to the web via the globalstar satalite system. This generates an email that updates the data on a django based website. All the code is open source. 
 
-This project was started as an little amusement to do over the holidays and provide information about the weather conditioins at Spray Lakes in ALberta Canada for the the folks that snowkite there. You can see the current data from this station at spraywind.com.  
+This project was started as an little amusement to do over the holidays and provide information about the weather conditioins at Spray Lakes in Alberta Canada for the the folks that snowkite there. You can see the current data from this station at spraywind.com. I look forward to hearing about what other people end up doing with this system.
+
 
 
 ## Design 
@@ -24,7 +25,7 @@ Have a bug or a feature request? [Please open a new issue](https://github.com/fl
 
 ## Contributors
 
-**Cullen Jennings**
+**Cullen (Fluffy) Jennings**
 
 
 ## Copyright and license
