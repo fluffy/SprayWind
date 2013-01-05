@@ -12,7 +12,7 @@ This project was started as an little amusement to do over the holidays and prov
 ## Design 
 
 Some documentation of the design can be found at
-(http://htmlpreview.github.com/?https://github.com/fluffy/SprayWind/blob/master/doc/design.html)
+(http://doc.spraywind.com/doc/design.html)
 
 
 ## Tasks and Bug tracker
