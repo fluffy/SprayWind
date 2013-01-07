@@ -1,3 +1,0 @@
-Time 15505: Spot connect is off
-turned on sat because have messages to send
-Starting up spot
