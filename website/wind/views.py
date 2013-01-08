@@ -40,10 +40,10 @@ def getWind( request, sensorName ):
     sensorReading = SensorReading.objects.filter( sensorID=sensorName ).latest()
     return render(request, 'wind.html', 
     				{ 'time':    sensorReading.time, 
-    				  'curWind': sensorReading.curWind*3.6, # convert from m/s to kph
-    				  'minWind': sensorReading.minWind*3.6,
-    				  'avgWind': sensorReading.avgWind*3.6,
-    		          'maxWind': sensorReading.maxWind*3.6,
+    				  'curWind': sensorReading.curWind*1.943, # convert from m/s to knot
+    				  'minWind': sensorReading.minWind*1.943,
+    				  'avgWind': sensorReading.avgWind*1.943,
+    		          'maxWind': sensorReading.maxWind*1.943,
     				  'temperature':sensorReading.temperature ,
     				  'voltage': sensorReading.voltage  } )
 

@@ -23,14 +23,14 @@
 </head>
 <body>
 <p> 
-Wind: <strong> {{ curWind|floatformat:0 }} km/h </strong><br/>
+Wind: <strong> {{ curWind|floatformat:0 }} knot </strong><br/>
 Updated {{ time|timesince }} ago <br/>
 In the previous hour: 
 <p/>
 <ul>
-   <li> Gusts: {{ maxWind|floatformat:0 }} km/h </li>
-   <li> Avg  : {{ avgWind|floatformat:0 }} km/h </li>
-   <li> Lulls: {{ minWind|floatformat:0 }} km/h </li>
+   <li> Gusts: {{ maxWind|floatformat:0 }} knot </li>
+   <li> Avg  : {{ avgWind|floatformat:0 }} knot </li>
+   <li> Lulls: {{ minWind|floatformat:0 }} knot </li>
 </ul>
 <p> 
 Temperature: {{ temperature|floatformat:1 }} C 
