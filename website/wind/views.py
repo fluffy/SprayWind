@@ -39,13 +39,13 @@ from website.wind.models import SensorReading
 def getWind( request, sensorName ):
     sensorReading = SensorReading.objects.get( sensorID=sensorName )
     return render(request, 'wind.html', 
-    				{ 'time':sensorReading.time, 
-    				  'curWind':sensorReading.curWind,
-    				  'minWind':sensorReading.minWind ,
-    				  'avgWind':sensorReading.avgWind ,
-    		          'maxWind':sensorReading.maxWind ,
+    				{ 'time':    sensorReading.time, 
+    				  'curWind': sensorReading.curWind*3.6, # convert from m/s to kph
+    				  'minWind': sensorReading.minWind*3.6,
+    				  'avgWind': sensorReading.avgWind*3.6,
+    		          'maxWind': sensorReading.maxWind*3.6,
     				  'temperature':sensorReading.temperature ,
-    				  'voltage':sensorReading.voltage  } )
+    				  'voltage': sensorReading.voltage  } )
 
 
 def getInfo( request, sensorName ):
