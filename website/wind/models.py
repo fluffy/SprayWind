@@ -30,7 +30,7 @@
 from django.db import models
 
 class SensorReading( models.Model ):
-	sensorID = models.CharField( max_length=64, primary_key=True, unique=True )
+	sensorID = models.CharField( max_length=64 )
 	version  = models.IntegerField( default=1 )
 	info     = models.TextField( )
 	time     = models.DateTimeField( auto_now=False )
@@ -40,3 +40,7 @@ class SensorReading( models.Model ):
 	curWind  = models.FloatField()
 	temperature = models.FloatField()
 	voltage  = models.FloatField()
+	class Meta:
+		ordering = [ "sensorID", "time" ]
+		get_latest_by = "time"
+

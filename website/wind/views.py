@@ -37,7 +37,7 @@ from website.wind.models import SensorReading
 
 
 def getWind( request, sensorName ):
-    sensorReading = SensorReading.objects.get( sensorID=sensorName )
+    sensorReading = SensorReading.objects.filter( sensorID=sensorName ).latest()
     return render(request, 'wind.html', 
     				{ 'time':    sensorReading.time, 
     				  'curWind': sensorReading.curWind*3.6, # convert from m/s to kph
@@ -49,8 +49,12 @@ def getWind( request, sensorName ):
 
 
 def getInfo( request, sensorName ):
-    sensorReading = SensorReading.objects.get( sensorID=sensorName )
-    return HttpResponse( "<html><body><pre>\n" + sensorReading.info + "\n</pre></body></html>" )
+    sensorReadings = SensorReading.objects.filter( sensorID=sensorName ).order_by( '-time' ).all()[:24]
+    html = "<html><body><pre>\n" 
+    for sensorReading in sensorReadings:
+	    html += sensorReading.info
+    html += "\n</pre></body></html>"
+    return HttpResponse( html )
 
 
 def cloudMailInJson( request ):
@@ -89,7 +93,7 @@ def cloudMailInJson( request ):
 	except Exception as e:
 		log += "Problem parsing the email. Exception %s \n"%e
 
-	log += "wind %s (min,avg,max) = %s,%s,%s temp = %s votage = %s \n"%( curWind, minWind, avgWind, maxWind , curTemp, curVoltage )
+	log += "wind %s (min,avg,max) = %s,%s,%s temp = %s battery = %s \n"%( curWind, minWind, avgWind, maxWind , curTemp, curVoltage )
  	r = SensorReading( sensorID=sensorName, time=now, info=log, 
  			curWind=curWind, minWind=minWind, avgWind=avgWind, maxWind=maxWind, temperature=curTemp, voltage=curVoltage )
   	r.save()
