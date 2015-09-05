@@ -95,6 +95,9 @@ mkdir SprayWind/static
 
 apt-get install uwsgi 
 
+adduser --system spraywind
+
+
 cp /root/SprayWind/sprayWind-uwsgi.ini /etc/uwsgi/apps-available/sprayWind-uwsgi.ini
 ln -s /etc/uwsgi/apps-available/sprayWind-uwsgi.ini /etc/uwsgi/apps-enabled/sprayWind-uwsgi.ini
 
@@ -109,3 +112,6 @@ ln -s /etc/nginx/sites-available/sprayWind-nginx.conf /etc/nginx/sites-enabled/s
 #tail -f /var/log/nginx/error.log &
 
 # systemctl status  uwsgi
+
+chmod a+rx /Root
+chown -R spraywind /root/SprayWind
