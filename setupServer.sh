@@ -93,7 +93,9 @@ cp SprayWind/website/settings.tmpl SprayWind/website/settings.py
 mkdir SprayWind/static
 
 
-apt-get install uwsgi 
+sudo apt-get -y install uwsgi 
+sudo apt-get -y install uwsgi-plugin-python3
+sudo apt-get -y install uwsgi-plugin-python
 
 adduser --system spraywind
 

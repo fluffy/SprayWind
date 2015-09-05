@@ -1,7 +1,8 @@
 import os
 import sys
 
-from django.core.handlers.wsgi import WSGIHandler
-
 os.environ['DJANGO_SETTINGS_MODULE'] = 'website.settings'
-application = WSGIHandler()
+
+from django.core.wsgi import get_wsgi_application
+application = get_wsgi_application()
+
