@@ -75,14 +75,7 @@ sudo apt-get -y install nginx
 
 sudo rm /etc/nginx/sites-enabled/default
 
-echo usefull commands
-echo sudo start ircexp 
-echo sudo forever restartall
-echo sudo service nginx restart
-
 sudo apt-get -y install python-django
-
-sudo apt-get -y install gunicorn
 
 cd ~
 git clone https://github.com/fluffy/SprayWind.git
@@ -97,7 +90,7 @@ sudo apt-get -y install uwsgi
 sudo apt-get -y install uwsgi-plugin-python3
 sudo apt-get -y install uwsgi-plugin-python
 
-adduser --system spraywind
+# adduser --system spraywind
 
 
 cp /root/SprayWind/sprayWind-uwsgi.ini /etc/uwsgi/apps-available/sprayWind-uwsgi.ini
@@ -128,5 +121,5 @@ sudo  apt-get -y  install python-pip
 
 pip install uwsgitop
 
-
+# uwsgitop "127.0.0.1:7001"
 
