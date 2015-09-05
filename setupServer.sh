@@ -116,8 +116,10 @@ ln -s /etc/nginx/sites-available/sprayWind-nginx.conf /etc/nginx/sites-enabled/s
 # systemctl status  uwsgi
 
 chmod a+rx /Root
-chown -R spraywind /root/SprayWind
+chown -R www-data /root/SprayWind
 
 # systemctl restart  uwsgi
 # systemctl restart  nginx
+
+# git pull ; chown -R www-data /root/SprayWind; cp /root/SprayWind/sprayWind-uwsgi.ini /etc/uwsgi/apps-available/sprayWind-uwsgi.ini ; cp /root/SprayWind/sprayWind-nginx.conf /etc/nginx/sites-available/sprayWind-nginx.conf
 
