@@ -117,3 +117,7 @@ ln -s /etc/nginx/sites-available/sprayWind-nginx.conf /etc/nginx/sites-enabled/s
 
 chmod a+rx /Root
 chown -R spraywind /root/SprayWind
+
+# systemctl restart  uwsgi
+# systemctl restart  nginx
+
