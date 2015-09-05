@@ -93,3 +93,6 @@ cp SprayWind/website/settings.tmpl SprayWind/website/settings.py
 mkdir SprayWind/static
 
 
+apt-get install uwsgi 
+
+
