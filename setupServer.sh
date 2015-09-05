@@ -123,3 +123,10 @@ chown -R www-data /root/SprayWind
 
 # git pull ; chown -R www-data /root/SprayWind; cp /root/SprayWind/sprayWind-uwsgi.ini /etc/uwsgi/apps-available/sprayWind-uwsgi.ini ; cp /root/SprayWind/sprayWind-nginx.conf /etc/nginx/sites-available/sprayWind-nginx.conf
 
+
+sudo  apt-get -y  install python-pip
+
+pip install uwsgitop
+
+
+
