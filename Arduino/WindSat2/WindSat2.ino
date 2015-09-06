@@ -12,16 +12,21 @@ const byte displayAddress = 0x71; // for LED display
 const int rtcAddress = 0x68; // See data sheet for DS1307
 
 
-
+#define DEBUG( X ) Serial.println( X );
+#define DEBUG_NOCR( X ) Serial.print( X );
+#define DEBUG2( X, Y ) Serial.print( X ); Serial.println( Y );
+#define DEBUG_NOCR2( X,Y ) Serial.print( X) ; Serial.print( Y );
 
 byte satActive = 0;
 byte rtcActive = 0;
 byte windActive = 0;
-byte dispActive = 0;
+volatile byte dispActive = 0;
 
 
 void setup()
 {
+  DEBUG("Setup");
+
   btnSetup();
   satSetup();
   rtcSetup();
@@ -32,7 +37,7 @@ void setup()
   windStart();
   dispStart();
 
-  while ( rtcActive) // wait to get a valid time before really starting
+  while ( rtcActive ) // wait to get a valid time before really starting
   {
     rtcRun();
   }
@@ -41,6 +46,7 @@ void setup()
 
 void loop()
 {
+  delay( 10 /*ms*/ ); // TODO remove
   runSched();
 }
 
@@ -54,10 +60,19 @@ void btnSetup()
   attachInterrupt(0, btnPress, FALLING); // white button wire
 }
 
+volatile unsigned long lastBtnPressTime = 0;
+
 void btnPress()
 {
-  stopSleep = 1;
+  // debounce
+  long now = millis();
+  if ( now < lastBtnPressTime + 100 )
+  {
+    return;
+  }
+  lastBtnPressTime = now;
 
+  stopSleep = 1;
   if ( !dispActive )
   {
     dispStart();
@@ -69,51 +84,89 @@ void btnPress()
 }
 
 
-byte prevMinute = 0;
+byte prevMinute = -1;
+byte prevSec = -1;
 
 void runSched() {
+  //DEBUG( "In runSched" );
+  //DEBUG_NOCR( "." );
+
   nowTime = millis();
   unsigned long t = (nowTime / 60000) % 60;
   byte nowMinute, nowSec, nowHour;
-  rtcGetTime( &nowHour, &nowSec, &nowMinute );
+  rtcGetTime( &nowHour, &nowMinute, &nowSec);
+
+  //DEBUG2( "nowMinute  = ", nowMinute );
+  //DEBUG2( "prevMinute = ", prevMinute );
 
   if ( nowMinute != prevMinute )
   {
+    DEBUG( "Scheudle start wind" );
     windStart();
   }
 
-  if ( ((nowMinute + 1) % 5) != ((prevMinute + 1) % 5) ) // ever 5 min, but 1 min before satStart
+  if ( ((nowMinute + 1) / 5) != ((prevMinute + 1) / 5) ) // ever 5 min, but 1 min before satStart
   {
+    DEBUG( "Scheudle start rtc" );
     rtcStart();
   }
 
   // TODO - add hour check here and schedule
-  if ( (nowMinute % 15) != (prevMinute % 15) )
+  if ( (nowMinute / 15) != (prevMinute / 15) )
   {
+    DEBUG( "Scheudle start sat" );
     satStart();
   }
 
-  if ( satActive ) satRun();
-  if ( rtcActive ) rtcRun();
-  if ( windActive ) windRun();
-  if ( dispActive ) dispRun();
-
-  if ( !satActive && !rtcActive && !windActive && !dispActive )
+  if ( rtcActive )
   {
-    deepSleep( 60 - nowSec );
+    rtcRun();
+  }
+  if ( windActive )
+  {
+    windRun();
+  }
+  if ( satActive )
+  {
+    satRun();
+  }
+  if ( dispActive )
+  {
+    // run once a scond or when button is pressed
+    if ( stopSleep || ( prevSec != nowSec ) )
+    {
+      dispRun();
+    }
+    stopSleep = 0;
   }
 
   prevMinute = nowMinute;
+  prevSec = nowSec;
+
+  if ( !satActive && !rtcActive && !windActive && !dispActive )
+  {
+    //DEBUG( "Scheudle start deepSleep" );
+    deepSleep( 60 - nowSec );
+  }
+
+
 }
 
 void deepSleep(long t/* seconds*/)
 {
+  if ( t > 10 ) t = 10; // TODO - consider remove
+
+  DEBUG2( "in Deep sleep ", t );
   stopSleep = 0;
   long time = t * 10;
   while ( !stopSleep && (time > 0) )
   {
-    // TODO sleep(100);
+    delay( 100 /*ms*/ );
     time--;
+  }
+  if ( stopSleep )
+  {
+    DEBUG( "interupt stopped deepSleep" );
   }
 }
 
@@ -138,6 +191,8 @@ void satStart()
 
 void satRun()
 {
+  DEBUG( "in satRun" );
+
   satStop();
 }
 
@@ -169,6 +224,8 @@ void windStart()
 
 void windRun()
 {
+  DEBUG( "In windRun" );
+
   if ( nowTime < windStartTime + 100 )
   {
     return;
@@ -196,7 +253,7 @@ unsigned long rtcStartSeconds; // wall clock time of startTime
 
 void rtcSetup()
 {
-
+  DEBUG( "In rtcSetup");
 }
 
 void rtcSetTime() {
@@ -216,21 +273,38 @@ void rtcSetTime() {
 
 void rtcStart()
 {
+  DEBUG( "In rtcStart");
   rtcStartTime = nowTime;
   rtcActive = 1;
 }
 
 void rtcRun()
 {
+  DEBUG( "In rtcRun");
   // TODO - put in delay to wait to be ready
 
   byte h, m, s;
   rtcStartTime = nowTime;
 
-  if (0)
+
+  Wire.beginTransmission(rtcAddress);
+  Wire.write(byte(0x00));
+  Wire.endTransmission();
+
+  Wire.requestFrom(rtcAddress, 3); // num bytes to ready
+  s = Wire.read() & 0x7f; // second - mask out CH bit
+  m = Wire.read(); // minute
+  h = Wire.read() & 0x3f;  // hour - assume 24 hour mode
+  //dayOfWeek  = Wire.read(); // dayOfWeek 1 to 7
+  //dayOfMonth = Wire.read(); // dayOfMonbth 1 to 31
+  //month      = Wire.read(); // month 1 to 12
+  //year       = Wire.read(); // year will be 0 to 99
+
+  if ( (s > 60) || ( m > 60 ) || ( h > 24 ) )
   {
-    // TODO - get from RTC and remove next
-    unsigned long t = micros(); //
+    // got a bogus read of RTC - just go to fake it mode
+    DEBUG("RTC Error - using FAKE TIME" );
+    unsigned long t = millis(); //
     t = t / 1000; // sec
     s = (t % 60);
     t = t / 60; // now in min
@@ -238,29 +312,22 @@ void rtcRun()
     t = t / 60; //now in hour
     h = (t % 24);
   }
-  else
-  {
-    Wire.beginTransmission(rtcAddress);
-    Wire.write(byte(0x00));
-    Wire.endTransmission();
 
-    Wire.requestFrom(rtcAddress, 3); // num bytes to ready
-    s = Wire.read() & 0x7f; // second - mask out CH bit
-    m = Wire.read(); // minute
-    h = Wire.read() & 0x3f;  // hour - assume 24 hour mode
-    //dayOfWeek  = Wire.read(); // dayOfWeek 1 to 7
-    //dayOfMonth = Wire.read(); // dayOfMonbth 1 to 31
-    //month      = Wire.read(); // month 1 to 12
-    //year       = Wire.read(); // year will be 0 to 99
-  }
+  DEBUG_NOCR( "rtcRun real time = " );
+  DEBUG_NOCR( h ); DEBUG_NOCR( ":" );
+  DEBUG_NOCR( m ); DEBUG_NOCR( ":" );
+  DEBUG( s );
 
   rtcStartSeconds = h * 3600 + m * 60 + s;
+
+  DEBUG2( "rtcStartSeconds=" , rtcStartSeconds );
 
   rtcStop();
 }
 
 void rtcStop()
 {
+  DEBUG( "In rtcStop");
   rtcActive = 0;
 }
 
@@ -272,8 +339,16 @@ void rtcGetTime(byte* hour, byte* m, byte* sec)
   unsigned long t = micros(); //
   t = t / 1000; // sec
   *sec = (seconds % 60);
-  *m = ( (seconds / 16) % 60 );
+  *m = ( (seconds / 60) % 60 );
   *hour = ( (seconds / 3600) % 24 );
+
+  if ( 0 )
+  {
+    DEBUG_NOCR( "rtcGetTime = " );
+    DEBUG_NOCR( *hour ); DEBUG_NOCR( ":" );
+    DEBUG_NOCR( *m ); DEBUG_NOCR( ":" );
+    DEBUG( *sec );
+  }
 }
 
 /*****  VoltageStuff *******/
@@ -285,8 +360,8 @@ long batGetVoltageVx10()
 }
 
 /****   Display stuff  ****/
-unsigned long dispStartTime = 0;
-byte dispItem = 0;
+volatile unsigned long dispStartTime = 0;
+volatile byte dispItem = 0;
 
 void dispSetup()
 {
@@ -298,6 +373,7 @@ void dispSetup()
 
 void dispStart()
 {
+  // this runs in interup so don;t do much here
   dispStartTime = nowTime;
   dispActive = 1;
   dispItem = 0;
@@ -305,13 +381,13 @@ void dispStart()
 
 void dispRun()
 {
-  if ( nowTime >= dispStartTime + 30 * 1000 )
+  DEBUG_NOCR2( "in dispRun " , dispItem );
+
+  if ( nowTime >= dispStartTime + 15 * 1000 ) // turn off after 15 seconds
   {
     dispStop();
     return;
   }
-
-  // TODO - need to keep from updating too often
 
   switch ( dispItem )
   {
@@ -363,8 +439,39 @@ void dispRun()
   }
 }
 
-void dispShow( byte a, byte b, byte c, byte d, byte n )
+void dispNext()
 {
+  // increment to display next Item
+  dispStartTime = nowTime;
+  dispItem++;
+  if ( dispItem > 4 )
+  {
+    dispItem = 0;
+  }
+}
+
+
+
+void dispShow( byte a, byte b, byte c, byte d, int n )
+{
+  DEBUG2( " n=", n );
+
+  if (1 )
+  {
+    //  debug of DISPLAY
+    char data[8];
+    data[0] = ( a <= 0x0F ) ? '0' + a : a ;
+    data[1] = ( n == 3 ) ? '.' : ' ' ;
+    data[2] = ( b <= 0x0F ) ? '0' + b : b ;
+    data[3] = ( n == 2 ) ? '.' :  (( n == -2 ) ? ':' : ' ') ;
+    data[4] = ( c <= 0x0F ) ? '0' + c : c ;
+    data[5] = ( n == 1 ) ? '.' :  (( n == -1 ) ? 0x27 : ' ') ;
+    data[6] = ( d <= 0x0F ) ? '0' + d : d ;
+    data[7] = 0;
+
+    DEBUG2( " DISPLAY ", data );
+  }
+
   // display a,b,c,d with decimal in n'th postion -2 for colon
   Wire.write( 0x76 ); // clear
   Wire.write( a );
@@ -397,23 +504,6 @@ void dispStop()
   dispActive = 0;
   dispShow( ' ', ' ', ' ', ' ', 0 );
 }
-
-void dispNext()
-{
-  if ( nowTime < dispStartTime + 100 )
-  {
-    return; // debounce
-  }
-
-  // increment to display next Item
-  dispStartTime = nowTime;
-  dispItem++;
-  if ( dispItem >= 4 )
-  {
-    dispItem = 0;
-  }
-}
-
 
 
 
