@@ -5,8 +5,11 @@
 
 const int btnPin = 2;
 const int eBtnPin = 3;
+const int auxPwdEnablePin = 4;
 
 const int windPin = 0;
+const int batSensePin = 1;
+
 
 const byte displayAddress = 0x71; // for LED display
 const int rtcAddress = 0x68; // See data sheet for DS1307
@@ -22,10 +25,19 @@ byte rtcActive = 0;
 byte windActive = 0;
 volatile byte dispActive = 0;
 
+/****   Display stuff  ****/
+volatile unsigned long dispStartTime = 0;
+volatile byte dispItem = 0;
+
 
 void setup()
 {
   DEBUG("Setup");
+
+  pinMode( auxPwdEnablePin, OUTPUT );
+  digitalWrite( auxPwdEnablePin, HIGH );
+
+  Wire.begin();
 
   btnSetup();
   satSetup();
@@ -287,18 +299,23 @@ void rtcRun()
   rtcStartTime = nowTime;
 
 
-  Wire.beginTransmission(rtcAddress);
-  Wire.write(byte(0x00));
-  Wire.endTransmission();
+  s = 0xFF;
 
-  Wire.requestFrom(rtcAddress, 3); // num bytes to ready
-  s = Wire.read() & 0x7f; // second - mask out CH bit
-  m = Wire.read(); // minute
-  h = Wire.read() & 0x3f;  // hour - assume 24 hour mode
-  //dayOfWeek  = Wire.read(); // dayOfWeek 1 to 7
-  //dayOfMonth = Wire.read(); // dayOfMonbth 1 to 31
-  //month      = Wire.read(); // month 1 to 12
-  //year       = Wire.read(); // year will be 0 to 99
+  if (1) // TODO enable
+  {
+    Wire.beginTransmission(rtcAddress);
+    Wire.write(byte(0x00));
+    Wire.endTransmission();
+
+    Wire.requestFrom(rtcAddress, 3); // num bytes to ready
+    s = Wire.read() & 0x7f; // second - mask out CH bit
+    m = Wire.read(); // minute
+    h = Wire.read() & 0x3f;  // hour - assume 24 hour mode
+    //dayOfWeek  = Wire.read(); // dayOfWeek 1 to 7
+    //dayOfMonth = Wire.read(); // dayOfMonbth 1 to 31
+    //month      = Wire.read(); // month 1 to 12
+    //year       = Wire.read(); // year will be 0 to 99
+  }
 
   if ( (s > 60) || ( m > 60 ) || ( h > 24 ) )
   {
@@ -355,20 +372,23 @@ void rtcGetTime(byte* hour, byte* m, byte* sec)
 
 long batGetVoltageVx10()
 {
-  // TODO
-  return 666;
+  int v = analogRead( batSensePin );
+  v = v * 10; 
+  v = v / 47;
+  return v;
 }
 
 /****   Display stuff  ****/
-volatile unsigned long dispStartTime = 0;
-volatile byte dispItem = 0;
+
 
 void dispSetup()
 {
-  Wire.begin();
-  Wire.beginTransmission(displayAddress);
-  Wire.write( 0x7A );  Wire.write(  0xFF ); // full brightness
-  Wire.endTransmission();
+  if ( 1 ) // TODO
+  {
+    Wire.beginTransmission(displayAddress);
+    Wire.write( 0x7A );  Wire.write(  0xFF ); // full brightness
+    Wire.endTransmission();
+  }
 }
 
 void dispStart()
@@ -383,7 +403,7 @@ void dispRun()
 {
   DEBUG_NOCR2( "in dispRun " , dispItem );
 
-  if ( nowTime >= dispStartTime + 15 * 1000 ) // turn off after 15 seconds
+  if ( nowTime >= dispStartTime + 90 * 1000 ) // turn off after 90 seconds - TODO pick time
   {
     dispStop();
     return;
@@ -426,7 +446,14 @@ void dispRun()
       {
         byte hour,  m,  sec;
         rtcGetTime( &hour, &m, &sec);
-        dispShow( hour / 10, hour % 10 , m / 10, m % 10, -2 );
+        if ( 1 ) // TODO
+        {
+          dispShow( m / 10, m % 10 , sec / 10, sec % 10, -2 );
+        }
+        else
+        {
+          dispShow( hour / 10, hour % 10 , m / 10, m % 10, -2 );
+        }
       }
       break;
     case 4: // voltage
@@ -473,6 +500,7 @@ void dispShow( byte a, byte b, byte c, byte d, int n )
   }
 
   // display a,b,c,d with decimal in n'th postion -2 for colon
+  Wire.beginTransmission(displayAddress);
   Wire.write( 0x76 ); // clear
   Wire.write( a );
   Wire.write( b );
@@ -497,6 +525,7 @@ void dispShow( byte a, byte b, byte c, byte d, int n )
       Wire.write( 0x77 );  Wire.write(  0x20 ); // turn on Apostrophe
       break;
   }
+  Wire.endTransmission();
 }
 
 void dispStop()
