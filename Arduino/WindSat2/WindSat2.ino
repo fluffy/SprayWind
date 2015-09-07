@@ -1,18 +1,30 @@
 
 
+#include <SoftwareSerial.h>
+#include <IridiumSBD.h>
 #include <Wire.h>
 
 
-const int btnPin = 2;
-const int eBtnPin = 3;
-const int auxPwrEnablePin = 4;
+static const int btnPin = 2;
+static const int eBtnPin = 3;
+static const int auxPwrEnablePin = 4;
 
-const int windPin = 0;
-const int batSensePin = 1;
+static const int satPwrEnablePin = 7;
+static const int satTxPin = 8;
+static const int satRxPin = 9;
+
+static const int ledPin = 13;
+
+static const int windPin = 0;
+static const int batSensePin = 1;
 
 
-const byte displayAddress = 0x71; // for LED display
-const int rtcAddress = 0x68; // See data sheet for DS1307
+static const byte displayAddress = 0x71; // for LED display
+static const int rtcAddress = 0x68; // See data sheet for DS1307
+
+
+SoftwareSerial satSerial( satRxPin, satTxPin );
+IridiumSBD sat( satSerial, satPwrEnablePin );
 
 
 #define DEBUG( X ) Serial.println( X );
@@ -34,6 +46,7 @@ volatile byte dispItem = 0;
 void setup()
 {
   Serial.begin(9600);
+  //Serial.begin(19200);
 
   DEBUG("Setup");
 
@@ -46,9 +59,9 @@ void setup()
 
   if (0)
   {
-  rtcSetTime();
+    rtcSetTime();
   }
-  
+
   satSetup();
   rtcSetup();
   windSetup();
@@ -77,7 +90,7 @@ void loop()
 
   //delay( 500 /*ms*/ ); // TODO remove
   delay(10);
-  
+
   runSched();
 }
 
@@ -199,21 +212,24 @@ void runSched() {
   }
 
   /* controll power */
-  if ( rtcActive || windActive || dispActive || satActive )
+  if ( 0 ) // TODO
   {
-    auxPowerOn();
-  }
-  else
-  {
-    auxPowerOff();
-  }
-  if ( satActive )
-  {
-    satPowerOn();
-  }
-  else
-  {
-    satPowerOff();
+    if ( rtcActive || windActive || dispActive || satActive )
+    {
+      auxPowerOn();
+    }
+    else
+    {
+      auxPowerOff();
+    }
+    if ( satActive )
+    {
+      satPowerOn();
+    }
+    else
+    {
+      satPowerOff();
+    }
   }
 
   /* run other stuff */
@@ -233,7 +249,7 @@ void runSched() {
   {
     satRun();
   }
-  
+
   if ( dispActive )
   {
     if ( !windActive )
@@ -284,41 +300,6 @@ void deepSleep(long t/* seconds*/)
 }
 
 
-/****   SAT stuff  ****/
-unsigned long satStartTime;
-byte satLastErr;
-
-void satSetup()
-{
-  satActive = 0;
-
-
-}
-
-void satStart()
-{
-  satActive = 1;
-  satStartTime = nowTime;
-  satLastErr = 0xFF;
-}
-
-void satRun()
-{
-  DEBUG( "in satRun" );
-
-  satStop();
-}
-
-void satStop()
-{
-  satActive = 0;
-}
-
-byte satGetError()
-{
-  return satLastErr;
-}
-
 /****   Wind stuff  ****/
 unsigned long windStartTime;
 long lastWindSpeedMPSx100 = 0;
@@ -340,35 +321,35 @@ void windRun()
   //DEBUG( "In windRun" );
 
 
-  delay( 5 ); // TODO measure time to stable from power on 
-  
+  delay( 5 ); // TODO measure time to stable from power on
+
   //if ( nowTime < windStartTime + 100 )
   //{
   //  return;
   //}
 
-  // sensor returns 0.4 v for 0 m/s wind and 2.0v for max wind of 32.4 m/s 
-  int val = analogRead(windPin);  
-  DEBUG2( "wind raw value = " , val );
-  
-  //val = 242; // TODO - this is about 15 knots 
-  
-  if ( val < 100 ) 
+  // sensor returns 0.4 v for 0 m/s wind and 2.0v for max wind of 32.4 m/s
+  int val = analogRead(windPin);
+  //DEBUG2( "wind raw value = " , val );
+
+  //val = 242; // TODO - this is about 15 knots
+
+  if ( val < 100 )
   {
     lastWindSpeedMPSx100 = 0xFFFF;
   }
   else
   {
-      if ( val < 124 )
-      {
-        val = 124;
-      }
-      
-      val = val - 124;
-      val = val * 13;
-      val = val / 2;
-      
-      lastWindSpeedMPSx100 = val;
+    if ( val < 124 )
+    {
+      val = 124;
+    }
+
+    val = val - 124;
+    val = val * 13;
+    val = val / 2;
+
+    lastWindSpeedMPSx100 = val;
   }
 
   windStop();
@@ -437,12 +418,12 @@ void rtcRun()
 {
   //DEBUG( "In rtcRun");
 
-  delay( 2 ); // mesure time from power on to usable 
-  
- // if ( nowTime < rtcStartTime + 5 )
- // {
- //   return;
- // }
+  delay( 2 ); // mesure time from power on to usable
+
+  // if ( nowTime < rtcStartTime + 5 )
+  // {
+  //   return;
+  // }
 
   byte h, m, s;
   rtcStartTime = nowTime;
@@ -625,7 +606,7 @@ void dispRun()
         dispShow( rawTime2 >> 4, rawTime2 & 0xF ,  rawTime1 >> 4, rawTime1 & 0xF , -2 );
       }
       break;
-      
+
     case 0: // wind knots
       {
         int w;
@@ -642,7 +623,7 @@ void dispRun()
         }
       }
       break;
-      
+
     case 1: // time
       {
         byte hour,  m,  sec;
@@ -657,7 +638,7 @@ void dispRun()
         }
       }
       break;
-      
+
     case 2: // voltage
       {
         long v;
@@ -672,7 +653,7 @@ void dispRun()
         dispShow( '-', 0, 0, ' ' , 0 );
       }
       break;
-      
+
     case 4: // sat error
       {
         byte e;
@@ -763,8 +744,87 @@ void dispStop()
 }
 
 
+/****   SAT stuff  ****/
+
+unsigned long satStartTime;
+byte satLastErr;
+
+void satSetup()
+{
+  satActive = 0;
+
+  satSerial.begin( 19200 );
+
+  sat.attachConsole(Serial);
+  sat.attachDiags(Serial);
+
+  sat.setPowerProfile(0);
+
+}
+
+void satStart()
+{
+  satActive = 1;
+  satStartTime = nowTime;
+  satLastErr = 0xFF;
+
+  sat.begin();
+}
+
+void satRun()
+{
+  DEBUG( "in satRun" );
+
+  int sigQuality ;
+  int err;
+
+  err = sat.getSignalQuality(sigQuality);
+  if (err != 0)
+  {
+    DEBUG2( "getSignalQuality failed err=" , err );
+    satLastErr = err;
+    satStop();
+    return;
+  }
+
+  DEBUG2( "Sat signal quality = " , sigQuality );
+
+  err = sat.sendSBDText("Hello, world!");
+  if (err != 0)
+  {
+    DEBUG2( "sat sendSBDText failed: ", err );
+    satLastErr = err;
+    satStop();
+    return;
+  }
+
+  DEBUG("Sat Transmit OK **********************************************");
 
 
+  DEBUG2( "sat msg's left = " ,  sat.getWaitingMessageCount() );
+
+
+  satStop(); // TODO
+}
+
+void satStop()
+{
+  sat.sleep();
+  satActive = 0;
+}
+
+byte satGetError()
+{
+  return satLastErr;
+}
+
+
+
+bool ISBDCallback()
+{
+  digitalWrite(ledPin, (millis() / 500) % 2 == 1 ? HIGH : LOW);
+  return true;
+}
 
 
 
