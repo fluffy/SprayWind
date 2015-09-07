@@ -335,9 +335,30 @@ void windRun()
     return;
   }
 
-  int val = analogRead(windPin);
+  // sensor returns 0.4 v for 0 m/s wind and 2.0v for max wind of 32.4 m/s 
+  int val = analogRead(windPin);  
+  DEBUG2( "wind raw value = " , val );
+  
+  //val = 242; // TODO - this is about 15 knots 
+  
+  if ( val < 100 ) 
+  {
+    lastWindSpeedMPSx100 = 0xFFFF;
+  }
+  else
+  {
+      if ( val < 124 )
+      {
+        val = 124;
+      }
+      
+      val = val - 124;
+      val = val * 13;
+      val = val / 2;
+      
+      lastWindSpeedMPSx100 = val;
+  }
 
-  lastWindSpeedMPSx100 = 1234; // TODO
   windStop();
 }
 
@@ -456,14 +477,14 @@ void rtcRun()
     }
   }
 
-  if (1) // TODO 
+  if (1) // TODO
   {
-  DEBUG_NOCR( "rtcRun real time = " );
-  DEBUG_NOCR( h ); DEBUG_NOCR( ":" );
-  DEBUG_NOCR( m ); DEBUG_NOCR( ":" );
-  DEBUG( s );
+    DEBUG_NOCR( "rtcRun real time = " );
+    DEBUG_NOCR( h ); DEBUG_NOCR( ":" );
+    DEBUG_NOCR( m ); DEBUG_NOCR( ":" );
+    DEBUG( s );
   }
-  
+
   rtcStartSeconds = (long)h * 3600 + (long)m * 60 + (long)s;
 
   rtcStop();
@@ -490,7 +511,7 @@ void rtcGetTime(byte* hour, byte* m, byte* sec)
   *m = ( (seconds / 60) % 60 );
   *hour = ( (seconds / 3600) % 24 );
 
-  if ( 0 ) // TODO 
+  if ( 0 ) // TODO
   {
     DEBUG_NOCR( "rtcGetTime = " );
     DEBUG_NOCR( *hour ); DEBUG_NOCR( ":" );
@@ -584,12 +605,13 @@ void dispRun()
 
   switch ( dispItem )
   {
-    case 0: // raw time butes
+    case 99: // raw time butes
       {
         dispShow( rawTime2 >> 4, rawTime2 & 0xF ,  rawTime1 >> 4, rawTime1 & 0xF , -2 );
       }
       break;
-    case 99: // wind knots
+      
+    case 0: // wind knots
       {
         int w;
         w  = windGetSpeedMPSx100();
@@ -605,12 +627,38 @@ void dispRun()
         }
       }
       break;
-    case 1: // time since lat sat tx
+      
+    case 1: // time
       {
-        dispShow( 'n', 'o', ' ', ' ' , 0 );
+        byte hour,  m,  sec;
+        rtcGetTime( &hour, &m, &sec);
+        if ( 1 ) // TODO
+        {
+          dispShow( m / 10, m % 10 , sec / 10, sec % 10, -2 );
+        }
+        else
+        {
+          dispShow( hour / 10, hour % 10 , m / 10, m % 10, -2 );
+        }
       }
       break;
-    case 2: // sat error
+      
+    case 2: // voltage
+      {
+        long v;
+        v = batGetVoltageX10();
+        dispShow( ' ', (v / 100) % 10, (v / 10) % 10, v % 10, 1 );
+      }
+      break;
+
+    case 3: // time since lat sat tx
+      {
+        //dispShow( 'n', 'o', ' ', ' ' , 0 );
+        dispShow( '-', 0, 0, ' ' , 0 );
+      }
+      break;
+      
+    case 4: // sat error
       {
         byte e;
         e = satGetError();
@@ -627,27 +675,7 @@ void dispRun()
         }
       }
       break;
-    case 3: // time
-      {
-        byte hour,  m,  sec;
-        rtcGetTime( &hour, &m, &sec);
-        if ( 1 ) // TODO
-        {
-          dispShow( m / 10, m % 10 , sec / 10, sec % 10, -2 );
-        }
-        else
-        {
-          dispShow( hour / 10, hour % 10 , m / 10, m % 10, -2 );
-        }
-      }
-      break;
-    case 4: // voltage
-      {
-        long v;
-        v = batGetVoltageX10();
-        dispShow( ' ', (v / 100) % 10, (v / 10) % 10, v % 10, 1 );
-      }
-      break;
+
   }
 }
 
