@@ -5,7 +5,7 @@
 
 const int btnPin = 2;
 const int eBtnPin = 3;
-const int auxPwdEnablePin = 4;
+const int auxPwrEnablePin = 4;
 
 const int windPin = 0;
 const int batSensePin = 1;
@@ -23,6 +23,7 @@ const int rtcAddress = 0x68; // See data sheet for DS1307
 byte satActive = 0;
 byte rtcActive = 0;
 byte windActive = 0;
+byte batActive = 0;
 volatile byte dispActive = 0;
 
 /****   Display stuff  ****/
@@ -32,34 +33,87 @@ volatile byte dispItem = 0;
 
 void setup()
 {
+  Serial.begin(9600);
+
   DEBUG("Setup");
 
-  pinMode( auxPwdEnablePin, OUTPUT );
-  digitalWrite( auxPwdEnablePin, HIGH );
+  pwrSetup();
+  btnSetup();
 
   Wire.begin();
+  analogReference( DEFAULT ); // 3.3 V
 
-  btnSetup();
   satSetup();
   rtcSetup();
   windSetup();
+  batSetup();
   dispSetup();
 
   rtcStart();
   windStart();
-  dispStart();
+  batStart();
 
-  while ( rtcActive ) // wait to get a valid time before really starting
+  if (0)
   {
-    rtcRun();
+    while ( rtcActive ) // wait to get a valid time before really starting
+    {
+      rtcRun();
+    }
   }
+
+  dispStart(); // don't start till after have a time or rtc remains active until display is not
 }
 
 
 void loop()
 {
+  DEBUG_NOCR(".");
+
   delay( 10 /*ms*/ ); // TODO remove
   runSched();
+}
+
+
+/* power managment stuff */
+
+byte auxPowerStatus = 0;
+
+void pwrSetup()
+{
+  DEBUG("in pwrSetup");
+
+  pinMode( auxPwrEnablePin, OUTPUT );
+  auxPowerStatus = 0;
+  auxPowerOn();
+  satPowerOn();
+}
+
+void auxPowerOn()
+{
+  if ( auxPowerStatus )
+  {
+    return;
+  }
+  digitalWrite( auxPwrEnablePin, HIGH );
+  auxPowerStatus = 1;
+}
+
+void auxPowerOff()
+{
+  if ( !auxPowerStatus )
+  {
+    return;
+  }
+  digitalWrite( auxPwrEnablePin, LOW );
+  auxPowerStatus = 0;
+}
+
+void satPowerOn()
+{
+}
+
+void satPowerOff()
+{
 }
 
 /* scheduler stuff */
@@ -117,6 +171,12 @@ void runSched() {
     windStart();
   }
 
+  if ( nowMinute != prevMinute ) // todo less often
+  {
+    DEBUG( "Scheudle start bat" );
+    batStart();
+  }
+
   if ( ((nowMinute + 1) / 5) != ((prevMinute + 1) / 5) ) // ever 5 min, but 1 min before satStart
   {
     DEBUG( "Scheudle start rtc" );
@@ -130,6 +190,25 @@ void runSched() {
     satStart();
   }
 
+  /* controll power */
+  if ( rtcActive || windActive || dispActive || satActive )
+  {
+    auxPowerOn();
+  }
+  else
+  {
+    auxPowerOff();
+  }
+  if ( satActive )
+  {
+    satPowerOn();
+  }
+  else
+  {
+    satPowerOff();
+  }
+
+  /* run other stuff */
   if ( rtcActive )
   {
     rtcRun();
@@ -138,13 +217,17 @@ void runSched() {
   {
     windRun();
   }
+  if ( batActive )
+  {
+    batRun();
+  }
   if ( satActive )
   {
     satRun();
   }
   if ( dispActive )
   {
-    // run once a scond or when button is pressed
+    // run once a second or when button is pressed
     if ( stopSleep || ( prevSec != nowSec ) )
     {
       dispRun();
@@ -191,7 +274,7 @@ void satSetup()
 {
   satActive = 0;
 
-  Serial.begin(9600);
+
 }
 
 void satStart()
@@ -224,7 +307,7 @@ long lastWindSpeedMPSx100 = 0;
 
 void windSetup()
 {
-  analogReference( DEFAULT ); // 3.3 V
+  DEBUG( "in windSetup");
 }
 
 void windStart()
@@ -251,7 +334,10 @@ void windRun()
 
 void windStop()
 {
-  windActive = 0;
+  if ( !dispActive )
+  {
+    windActive = 0;
+  }
 }
 
 long windGetSpeedMPSx100()
@@ -290,10 +376,29 @@ void rtcStart()
   rtcActive = 1;
 }
 
+byte bcdToDec( byte in )
+{
+  byte low = in & 0xF;
+  byte high = (in >> 4) & 0xF;
+  if ( (low > 9) || ( high > 9 ) )
+  {
+    return 0xFF;
+  }
+
+  byte v = high * 10 + low;
+  return v;
+}
+
+byte rawTime1, rawTime2, rawTime3;// raw time btyes
+
 void rtcRun()
 {
   DEBUG( "In rtcRun");
-  // TODO - put in delay to wait to be ready
+
+  if ( nowTime < rtcStartTime + 5 )
+  {
+    return;
+  }
 
   byte h, m, s;
   rtcStartTime = nowTime;
@@ -308,26 +413,38 @@ void rtcRun()
     Wire.endTransmission();
 
     Wire.requestFrom(rtcAddress, 3); // num bytes to ready
-    s = Wire.read() & 0x7f; // second - mask out CH bit
-    m = Wire.read(); // minute
-    h = Wire.read() & 0x3f;  // hour - assume 24 hour mode
-    //dayOfWeek  = Wire.read(); // dayOfWeek 1 to 7
-    //dayOfMonth = Wire.read(); // dayOfMonbth 1 to 31
-    //month      = Wire.read(); // month 1 to 12
-    //year       = Wire.read(); // year will be 0 to 99
+    rawTime1 = Wire.read() ;
+    rawTime2 = Wire.read();
+    rawTime3 = Wire.read();
+
+    s = bcdToDec( rawTime1 & 0x7f ); // second - mask out CH bit
+    m = bcdToDec( rawTime2 ); // minute
+    h = bcdToDec( rawTime3 & 0x3f );  // hour - assume 24 hour mode
+
+    //dayOfWeek  = bcdToDec( Wire.read() ); // dayOfWeek 1 to 7
+    //dayOfMonth = bcdToDec( Wire.read() ); // dayOfMonbth 1 to 31
+    //month      = bcdToDec( Wire.read() ); // month 1 to 12
+    //year       = bcdToDec( Wire.read() ); // year will be 0 to 99
   }
 
   if ( (s > 60) || ( m > 60 ) || ( h > 24 ) )
   {
-    // got a bogus read of RTC - just go to fake it mode
-    DEBUG("RTC Error - using FAKE TIME" );
-    unsigned long t = millis(); //
-    t = t / 1000; // sec
-    s = (t % 60);
-    t = t / 60; // now in min
-    m = (t % 60);
-    t = t / 60; //now in hour
-    h = (t % 24);
+    if (0) // todo
+    {
+      // got a bogus read of RTC - just go to fake it mode
+      DEBUG("RTC Error - using FAKE TIME" );
+      unsigned long t = millis(); //
+      t = t / 1000; // sec
+      s = (t % 60);
+      t = t / 60; // now in min
+      m = (t % 60);
+      t = t / 60; //now in hour
+      h = (t % 24);
+    }
+    else
+    {
+      h = m = s = 6; // TODO remove
+    }
   }
 
   DEBUG_NOCR( "rtcRun real time = " );
@@ -345,7 +462,10 @@ void rtcRun()
 void rtcStop()
 {
   DEBUG( "In rtcStop");
-  rtcActive = 0;
+  if ( !dispActive ) // TODO decide
+  {
+    rtcActive = 0;
+  }
 }
 
 void rtcGetTime(byte* hour, byte* m, byte* sec)
@@ -353,8 +473,6 @@ void rtcGetTime(byte* hour, byte* m, byte* sec)
   long deltaSeconds = (nowTime - rtcStartTime) / 1000; // TODO - what happens wrap ...
   unsigned long seconds = rtcStartSeconds + deltaSeconds;
 
-  unsigned long t = micros(); //
-  t = t / 1000; // sec
   *sec = (seconds % 60);
   *m = ( (seconds / 60) % 60 );
   *hour = ( (seconds / 3600) % 24 );
@@ -368,27 +486,68 @@ void rtcGetTime(byte* hour, byte* m, byte* sec)
   }
 }
 
-/*****  VoltageStuff *******/
+/*****  Batter Monitor Stuff  *******/
 
-long batGetVoltageVx10()
+unsigned long batStartTime;
+int lastBatVoltageX10 = 0;
+
+void batSetup()
 {
-  int v = analogRead( batSensePin );
-  v = v * 10; 
-  v = v / 47;
-  return v;
+  DEBUG( "in batSetup" );
+  lastBatVoltageX10 = 0xFFFF;
 }
+
+void batStart()
+{
+  batStartTime = nowTime;
+  batActive = 1;
+}
+
+void batRun()
+{
+  DEBUG( "In batRun" );
+
+  if ( nowTime < batStartTime + 10 )
+  {
+    return;
+  }
+
+  int v = analogRead( batSensePin );
+  v = v * 30; // will overflow it scale by value larger than this
+  v = v / 145;
+  lastBatVoltageX10 = v;
+
+  batStop();
+}
+
+void batStop()
+{
+  if ( !dispActive )
+  {
+    batActive = 0;
+  }
+}
+
+int batGetVoltageX10()
+{
+  return lastBatVoltageX10;
+}
+
+
 
 /****   Display stuff  ****/
 
 
 void dispSetup()
 {
+  DEBUG("1Setup");
   if ( 1 ) // TODO
   {
     Wire.beginTransmission(displayAddress);
     Wire.write( 0x7A );  Wire.write(  0xFF ); // full brightness
     Wire.endTransmission();
   }
+  DEBUG("done dispSetup");
 }
 
 void dispStart()
@@ -403,7 +562,8 @@ void dispRun()
 {
   DEBUG_NOCR2( "in dispRun " , dispItem );
 
-  if ( nowTime >= dispStartTime + 90 * 1000 ) // turn off after 90 seconds - TODO pick time
+  const long turnOffTime = 90000; // in ms
+  if ( nowTime >= dispStartTime + turnOffTime )
   {
     dispStop();
     return;
@@ -411,13 +571,25 @@ void dispRun()
 
   switch ( dispItem )
   {
-    case 0: // wind knots
+    case 0: // raw time butes
       {
-        long w;
+        dispShow( rawTime2 >> 4, rawTime2 & 0xF ,  rawTime1 >> 4, rawTime1 & 0xF , -2 );
+      }
+      break;
+    case 99: // wind knots
+      {
+        int w;
         w  = windGetSpeedMPSx100();
-        w = w * 2; // convert to knotsx100 TODO
-        w = w / 10; // convert to 10ths
-        dispShow( (w / 100) % 10, (w / 10) % 10,  (w) % 10 , 'n' , 2 );
+        if ( w == 0xFFFF )
+        {
+          dispShow(  'E', 'r', 'r', 'S', -1 );
+        }
+        else
+        {
+          w = w * 19; // convert to knotsx1000 TODO - can this overflow ? - more accureate converstion
+          w = w / 100; // convert to 10ths
+          dispShow( (w / 100) % 10, (w / 10) % 10,  (w) % 10 , 'n' , 2 );
+        }
       }
       break;
     case 1: // time since lat sat tx
@@ -459,8 +631,8 @@ void dispRun()
     case 4: // voltage
       {
         long v;
-        v = batGetVoltageVx10();
-        dispShow( 'v', (v / 100) % 10, (v / 10) % 10, v % 10, 1 );
+        v = batGetVoltageX10();
+        dispShow( ' ', (v / 100) % 10, (v / 10) % 10, v % 10, 1 );
       }
       break;
   }
