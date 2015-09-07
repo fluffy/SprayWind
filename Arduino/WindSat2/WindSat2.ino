@@ -69,7 +69,7 @@ void loop()
 {
   DEBUG_NOCR(".");
 
-  delay( 10 /*ms*/ ); // TODO remove
+  delay( 500 /*ms*/ ); // TODO remove
   runSched();
 }
 
@@ -227,6 +227,15 @@ void runSched() {
   }
   if ( dispActive )
   {
+    if ( !windActive )
+    {
+      windStart();
+    }
+    if ( !batActive )
+    {
+      batStart();
+    }
+
     // run once a second or when button is pressed
     if ( stopSleep || ( prevSec != nowSec ) )
     {
@@ -319,7 +328,7 @@ void windStart()
 
 void windRun()
 {
-  DEBUG( "In windRun" );
+  //DEBUG( "In windRun" );
 
   if ( nowTime < windStartTime + 100 )
   {
@@ -393,7 +402,7 @@ byte rawTime1, rawTime2, rawTime3;// raw time btyes
 
 void rtcRun()
 {
-  DEBUG( "In rtcRun");
+  //DEBUG( "In rtcRun");
 
   if ( nowTime < rtcStartTime + 5 )
   {
@@ -447,22 +456,23 @@ void rtcRun()
     }
   }
 
+  if (1) // TODO 
+  {
   DEBUG_NOCR( "rtcRun real time = " );
   DEBUG_NOCR( h ); DEBUG_NOCR( ":" );
   DEBUG_NOCR( m ); DEBUG_NOCR( ":" );
   DEBUG( s );
-
-  rtcStartSeconds = h * 3600 + m * 60 + s;
-
-  DEBUG2( "rtcStartSeconds=" , rtcStartSeconds );
+  }
+  
+  rtcStartSeconds = (long)h * 3600 + (long)m * 60 + (long)s;
 
   rtcStop();
 }
 
 void rtcStop()
 {
-  DEBUG( "In rtcStop");
-  if ( !dispActive ) // TODO decide
+  //DEBUG( "In rtcStop");
+  //if ( !dispActive ) // TODO decide
   {
     rtcActive = 0;
   }
@@ -473,11 +483,14 @@ void rtcGetTime(byte* hour, byte* m, byte* sec)
   long deltaSeconds = (nowTime - rtcStartTime) / 1000; // TODO - what happens wrap ...
   unsigned long seconds = rtcStartSeconds + deltaSeconds;
 
+  //seconds = rtcStartSeconds;  // TODO REMOVE
+  //DEBUG2( "seconds=" , seconds );
+
   *sec = (seconds % 60);
   *m = ( (seconds / 60) % 60 );
   *hour = ( (seconds / 3600) % 24 );
 
-  if ( 0 )
+  if ( 0 ) // TODO 
   {
     DEBUG_NOCR( "rtcGetTime = " );
     DEBUG_NOCR( *hour ); DEBUG_NOCR( ":" );
@@ -505,7 +518,7 @@ void batStart()
 
 void batRun()
 {
-  DEBUG( "In batRun" );
+  //DEBUG( "In batRun" );
 
   if ( nowTime < batStartTime + 10 )
   {
@@ -540,7 +553,7 @@ int batGetVoltageX10()
 
 void dispSetup()
 {
-  DEBUG("1Setup");
+  DEBUG("start dispSetup");
   if ( 1 ) // TODO
   {
     Wire.beginTransmission(displayAddress);
@@ -653,7 +666,7 @@ void dispNext()
 
 void dispShow( byte a, byte b, byte c, byte d, int n )
 {
-  DEBUG2( " n=", n );
+  // DEBUG2( " n=", n );
 
   if (1 )
   {
