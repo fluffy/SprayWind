@@ -43,6 +43,12 @@ void setup()
   Wire.begin();
   analogReference( DEFAULT ); // 3.3 V
 
+
+  if (0)
+  {
+  rtcSetTime();
+  }
+  
   satSetup();
   rtcSetup();
   windSetup();
@@ -69,7 +75,9 @@ void loop()
 {
   DEBUG_NOCR(".");
 
-  delay( 500 /*ms*/ ); // TODO remove
+  //delay( 500 /*ms*/ ); // TODO remove
+  delay(10);
+  
   runSched();
 }
 
@@ -132,7 +140,7 @@ void btnPress()
 {
   // debounce
   long now = millis();
-  if ( now < lastBtnPressTime + 100 )
+  if ( now < lastBtnPressTime + 250 )
   {
     return;
   }
@@ -225,6 +233,7 @@ void runSched() {
   {
     satRun();
   }
+  
   if ( dispActive )
   {
     if ( !windActive )
@@ -330,10 +339,13 @@ void windRun()
 {
   //DEBUG( "In windRun" );
 
-  if ( nowTime < windStartTime + 100 )
-  {
-    return;
-  }
+
+  delay( 5 ); // TODO measure time to stable from power on 
+  
+  //if ( nowTime < windStartTime + 100 )
+  //{
+  //  return;
+  //}
 
   // sensor returns 0.4 v for 0 m/s wind and 2.0v for max wind of 32.4 m/s 
   int val = analogRead(windPin);  
@@ -387,11 +399,11 @@ void rtcSetup()
 void rtcSetTime() {
   Wire.beginTransmission(rtcAddress);
   Wire.write(byte(0x00));
-  Wire.write(byte(0x22)); // seconds (bit 7=0 is start)
-  Wire.write(byte(0x33)); // minutes
-  Wire.write(byte(0x17)); // hours (bit 6=0 is 24 hour mode)
-  Wire.write(byte(0x06)); // day of week
-  Wire.write(byte(0x22)); // day of month
+  Wire.write(byte(0x00)); // seconds (bit 7=0 is start)
+  Wire.write(byte(0x443)); // minutes
+  Wire.write(byte(0x22)); // hours (bit 6=0 is 24 hour mode)
+  Wire.write(byte(0x07)); // day of week
+  Wire.write(byte(0x06)); // day of month
   Wire.write(byte(0x08)); // month
   Wire.write(byte(0x14)); // year
   Wire.write(byte(0x00)); // control turn of square wave
@@ -425,10 +437,12 @@ void rtcRun()
 {
   //DEBUG( "In rtcRun");
 
-  if ( nowTime < rtcStartTime + 5 )
-  {
-    return;
-  }
+  delay( 2 ); // mesure time from power on to usable 
+  
+ // if ( nowTime < rtcStartTime + 5 )
+ // {
+ //   return;
+ // }
 
   byte h, m, s;
   rtcStartTime = nowTime;
@@ -541,10 +555,11 @@ void batRun()
 {
   //DEBUG( "In batRun" );
 
-  if ( nowTime < batStartTime + 10 )
-  {
-    return;
-  }
+  delay( 2 ); // how long to charge cap from power on
+  //if ( nowTime < batStartTime + 10 )
+  //{
+  //  return;
+  //}
 
   int v = analogRead( batSensePin );
   v = v * 30; // will overflow it scale by value larger than this
