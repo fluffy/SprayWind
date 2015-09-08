@@ -86,7 +86,7 @@ void setup()
 
 void loop()
 {
-  DEBUG_NOCR(".");
+  //DEBUG_NOCR(".");
 
   //delay( 500 /*ms*/ ); // TODO remove
   delay(10);
@@ -106,7 +106,6 @@ void pwrSetup()
   pinMode( auxPwrEnablePin, OUTPUT );
   auxPowerStatus = 0;
   auxPowerOn();
-  satPowerOn();
 }
 
 void auxPowerOn()
@@ -121,6 +120,8 @@ void auxPowerOn()
 
 void auxPowerOff()
 {
+  // TODO - sleep sat and check sleeping before power down ?
+
   if ( !auxPowerStatus )
   {
     return;
@@ -129,13 +130,6 @@ void auxPowerOff()
   auxPowerStatus = 0;
 }
 
-void satPowerOn()
-{
-}
-
-void satPowerOff()
-{
-}
 
 /* scheduler stuff */
 unsigned long nowTime;
@@ -205,49 +199,27 @@ void runSched() {
   }
 
   // TODO - add hour check here and schedule
-  if ( (nowMinute / 15) != (prevMinute / 15) )
+  if ( ( (nowMinute / 15) != (prevMinute / 15) ) && ( nowTime > 30000 ) )
   {
     DEBUG( "Scheudle start sat" );
     satStart();
   }
 
-  /* controll power */
-  if ( 0 ) // TODO
+  if ( 1 ) // debug special sat tx 30 seconds after power up TODO TURN off
   {
-    if ( rtcActive || windActive || dispActive || satActive )
+    static byte firstTime = 1;
+    if ( firstTime  && ( nowTime > 20000 ) )
     {
-      auxPowerOn();
-    }
-    else
-    {
-      auxPowerOff();
-    }
-    if ( satActive )
-    {
-      satPowerOn();
-    }
-    else
-    {
-      satPowerOff();
+      satStart();
     }
   }
 
-  /* run other stuff */
-  if ( rtcActive )
-  {
-    rtcRun();
-  }
-  if ( windActive )
-  {
-    windRun();
-  }
-  if ( batActive )
-  {
-    batRun();
-  }
   if ( satActive )
   {
-    satRun();
+    if ( !dispActive )
+    {
+      dispStart();
+    }
   }
 
   if ( dispActive )
@@ -260,7 +232,38 @@ void runSched() {
     {
       batStart();
     }
+  }
 
+
+  /* controll power */
+  if ( 0 ) // TODO
+  {
+    if ( rtcActive || windActive || dispActive || satActive )
+    {
+      auxPowerOn();
+    }
+    else
+    {
+      auxPowerOff();
+    }
+  }
+
+  /* run other stuff */
+  if ( rtcActive )
+  {
+    rtcRun();
+  }
+  if ( batActive )
+  {
+    batRun();
+  }
+  if ( windActive )
+  {
+    windRun();
+  }
+
+  if ( dispActive )
+  {
     // run once a second or when button is pressed
     if ( stopSleep || ( prevSec != nowSec ) )
     {
@@ -269,10 +272,15 @@ void runSched() {
     stopSleep = 0;
   }
 
+  if ( satActive )
+  {
+    satRun();
+  }
+
   prevMinute = nowMinute;
   prevSec = nowSec;
 
-  if ( !satActive && !rtcActive && !windActive && !dispActive )
+  if ( !satActive && !rtcActive && !windActive && !dispActive && !batActive )
   {
     //DEBUG( "Scheudle start deepSleep" );
     deepSleep( 60 - nowSec );
@@ -283,9 +291,9 @@ void runSched() {
 
 void deepSleep(long t/* seconds*/)
 {
+  DEBUG2( "in Deep sleep ", t );
   if ( t > 10 ) t = 10; // TODO - consider remove
 
-  DEBUG2( "in Deep sleep ", t );
   stopSleep = 0;
   long time = t * 10;
   while ( !stopSleep && (time > 0) )
@@ -311,6 +319,8 @@ void windSetup()
 
 void windStart()
 {
+  if (windActive) return;
+
   windStartTime = nowTime;
   windActive = 1;
   lastWindSpeedMPSx100 = 0xFFFF;
@@ -361,6 +371,7 @@ void windStop()
   {
     windActive = 0;
   }
+  DEBUG2( "In windStop speed x100 = " , lastWindSpeedMPSx100 );
 }
 
 long windGetSpeedMPSx100()
@@ -394,6 +405,8 @@ void rtcSetTime() {
 
 void rtcStart()
 {
+  if (rtcActive) return;
+
   DEBUG( "In rtcStart");
   rtcStartTime = nowTime;
   rtcActive = 1;
@@ -454,7 +467,7 @@ void rtcRun()
 
   if ( (s > 60) || ( m > 60 ) || ( h > 24 ) )
   {
-    if (0) // todo
+    if (1) // TODO
     {
       // got a bogus read of RTC - just go to fake it mode
       DEBUG("RTC Error - using FAKE TIME" );
@@ -528,6 +541,8 @@ void batSetup()
 
 void batStart()
 {
+  if (batActive) return;
+
   batStartTime = nowTime;
   batActive = 1;
 }
@@ -556,6 +571,7 @@ void batStop()
   {
     batActive = 0;
   }
+  DEBUG2( "in batStop voltage x10 = " , lastBatVoltageX10 );
 }
 
 int batGetVoltageX10()
@@ -582,6 +598,8 @@ void dispSetup()
 
 void dispStart()
 {
+  if (dispActive) return;
+
   // this runs in interup so don;t do much here
   dispStartTime = nowTime;
   dispActive = 1;
@@ -590,7 +608,7 @@ void dispStart()
 
 void dispRun()
 {
-  DEBUG_NOCR2( "in dispRun " , dispItem );
+  //DEBUG_NOCR2( "in dispRun " , dispItem );
 
   const long turnOffTime = 90000; // in ms
   if ( nowTime >= dispStartTime + turnOffTime )
@@ -613,7 +631,7 @@ void dispRun()
         w  = windGetSpeedMPSx100();
         if ( w == 0xFFFF )
         {
-          dispShow(  'E', 'r', 'r', 'S', -1 );
+          dispShow(  '-', '-', '-', '-', 0 );
         }
         else
         {
@@ -649,8 +667,10 @@ void dispRun()
 
     case 3: // time since lat sat tx
       {
+        long delta = ( nowTime  - satGetLastTxTime() ) / 1000; 
+        // delta = delta / 60  // TODO - make minutes 
         //dispShow( 'n', 'o', ' ', ' ' , 0 );
-        dispShow( '-', 0, 0, ' ' , 0 );
+        dispShow( '-', (delta/100)%10, (delta/10)%10, delta%10 , -1 );
       }
       break;
 
@@ -660,13 +680,13 @@ void dispRun()
         e = satGetError();
         switch (e ) {
           case 0:
-            dispShow( 'O', 'K', ' ', ' ' , 0 );
+            dispShow( '-', '-', '-', '-' , -1 );
             break;
           case 0xFF:
-            dispShow( 'E', 'r', 'r', ' ' , 0 );
+            dispShow( 'E', 'r', 'r', ' ' , -1 );
             break;
           default:
-            dispShow( 'E', ' ', (e / 16) % 16, e % 16 , 0 );
+            dispShow( 'E', ' ', (e / 16) % 16, e % 16 , -1 );
             break;
         }
       }
@@ -692,7 +712,7 @@ void dispShow( byte a, byte b, byte c, byte d, int n )
 {
   // DEBUG2( " n=", n );
 
-  if (1 )
+  if (0)
   {
     //  debug of DISPLAY
     char data[8];
@@ -747,6 +767,7 @@ void dispStop()
 /****   SAT stuff  ****/
 
 unsigned long satStartTime;
+unsigned long satLastTxTime;
 byte satLastErr;
 
 void satSetup()
@@ -759,11 +780,12 @@ void satSetup()
   sat.attachDiags(Serial);
 
   sat.setPowerProfile(0);
-
 }
 
 void satStart()
 {
+  if ( satActive ) return;
+
   satActive = 1;
   satStartTime = nowTime;
   satLastErr = 0xFF;
@@ -789,20 +811,29 @@ void satRun()
 
   DEBUG2( "Sat signal quality = " , sigQuality );
 
-  err = sat.sendSBDText("Hello, world!");
-  if (err != 0)
+  if (1)
   {
-    DEBUG2( "sat sendSBDText failed: ", err );
-    satLastErr = err;
-    satStop();
-    return;
+    err = sat.sendSBDText("1");
+    if (err != 0)
+    {
+      DEBUG2( "sat sendSBDText failed: ", err );
+      satLastErr = err;
+      satStop();
+      return;
+    }
+    satLastErr = 0;
+
+    satLastTxTime = millis();
+
+    DEBUG("Sat Transmit OK **********************************************");
+  }
+  else
+  {
+    DEBUG("Would have done Sat TX here ==================================");
   }
 
-  DEBUG("Sat Transmit OK **********************************************");
 
-
-  DEBUG2( "sat msg's left = " ,  sat.getWaitingMessageCount() );
-
+  //DEBUG2( "sat msg's left = " ,  sat.getWaitingMessageCount() );
 
   satStop(); // TODO
 }
@@ -818,11 +849,28 @@ byte satGetError()
   return satLastErr;
 }
 
+unsigned long satGetLastTxTime()
+{
+  return satLastTxTime;
+}
 
 
 bool ISBDCallback()
 {
-  digitalWrite(ledPin, (millis() / 500) % 2 == 1 ? HIGH : LOW);
+  static unsigned long prevTime = 0;
+  unsigned long now = millis();
+
+  digitalWrite(ledPin, (now / 200) % 3 == 0 ? HIGH : LOW);
+
+  if ( now / 1000 != prevTime / 1000 )
+  {
+    prevTime = now;
+
+    long s = ( now - satStartTime ) / 1000;
+
+    dispShow( 'S', ' ' , (s / 10) % 10, s % 10 , -1 );
+  }
+
   return true;
 }
 
