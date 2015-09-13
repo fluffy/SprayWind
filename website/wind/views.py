@@ -63,8 +63,8 @@ def rockBlock( request ):
     sensorName = "sprayWind"
     now = datetime.datetime.now()
 
-    log =  "\n-------------------------------------------------------------------\n" 
-    log =  "rockBlock at %s \n" % now
+    log =  "-------------------------------------------------------------------\n" 
+    log +=  "rockBlock at %s \n" % now
     log += "request method = %s \n" % request.method 
     log += "request body = %s \n\n" % request.body
     
@@ -90,6 +90,8 @@ def rockBlock( request ):
         jsonData = codecs.decode( hexData , "hex" )
         senml = json.loads( jsonData ); 
 
+        log += "SENML = %s \n" % json.dumps( senml )
+        
         for reading in senml[ 'e' ]:
 			if reading['n'] == "battery": curVoltage = reading['v']
 			if reading['n'] == "wind":    curWind    = reading['v']

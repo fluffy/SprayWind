@@ -23,22 +23,14 @@
 </head>
 <body>
 <p> 
-Wind: <strong> {{ curWind|floatformat:0 }} knot </strong><br/>
+Wind: <strong> {{ curWind|floatformat:0 }} knots </strong>
+(gusting to {{maxWind|floatformat:0 }}) <br/>
 Updated {{ time|timesince }} ago <br/>
-In the previous hour: 
-<p/>
-<ul>
-   <li> Gusts: {{ maxWind|floatformat:0 }} knot </li>
-   <li> Avg  : {{ avgWind|floatformat:0 }} knot </li>
-   <li> Lulls: {{ minWind|floatformat:0 }} knot </li>
-</ul>
-<p> 
-Temperature: {{ temperature|floatformat:1 }} C 
+Battery: {{ voltage|floatformat:2 }} V <br>
 <p/>
 <details>
 	<summary> More Info: </summary>
 	<p> 
-			Battery: {{ voltage|floatformat:2 }} V <br>
 			This system is still in the prototype stage and the data is not calibrated. Don't expect it to be correct. 
     <p/>
     <p> 
