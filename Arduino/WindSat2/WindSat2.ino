@@ -41,6 +41,8 @@ static const int satTxPin = 8;
 static const int satRxPin = 9;
 
 static const int ledPin = 13;
+// TODO - turn off the LED when turning off sat stuff 
+
 
 static const int windPin = 0;
 static const int batSensePin = 1;
