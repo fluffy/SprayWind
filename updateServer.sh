@@ -10,3 +10,5 @@ cp /root/SprayWind/sprayWind-nginx.conf /etc/nginx/sites-available/sprayWind-ngi
 systemctl restart  uwsgi
 
 systemctl restart  nginx
+
+echo also do a "ps aux | grep sprayWind" and kill -9 the last two processes 
