@@ -27,6 +27,10 @@
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+// TODO - compute the gust values
+// TODO - perhaps average the wind values
+
+
 #include <SoftwareSerial.h>
 #include <IridiumSBD.h>
 #include <Wire.h>
@@ -41,8 +45,6 @@ static const int satTxPin = 8;
 static const int satRxPin = 9;
 
 static const int ledPin = 13;
-// TODO - turn off the LED when turning off sat stuff 
-
 
 static const int windPin = 0;
 static const int batSensePin = 1;
@@ -72,6 +74,12 @@ volatile unsigned long dispStartTime = 0;
 volatile byte dispItem = 0;
 
 
+
+byte prevHour = -1;
+byte prevMinute = -1;
+byte prevSec = -1;
+
+
 void setup()
 {
   Serial.begin(9600);
@@ -85,8 +93,7 @@ void setup()
   Wire.begin();
   analogReference( DEFAULT ); // 3.3 V
 
-
-  if (0)
+  if (0) // only use this for intial set time of RTC clock
   {
     rtcSetTime();
   }
@@ -101,12 +108,14 @@ void setup()
   windStart();
   batStart();
 
-  if (0)
+  if (1)
   {
     while ( rtcActive ) // wait to get a valid time before really starting
     {
       rtcRun();
     }
+
+    rtcGetTime( &prevHour, &prevMinute, &prevSec);
   }
 
   dispStart(); // don't start till after have a time or rtc remains active until display is not
@@ -194,15 +203,13 @@ void btnPress()
 }
 
 
-byte prevMinute = -1;
-byte prevSec = -1;
 
 void runSched() {
   //DEBUG( "In runSched" );
   //DEBUG_NOCR( "." );
 
   nowTime = millis();
-  unsigned long t = (nowTime / 60000) % 60;
+  //unsigned long t = (nowTime / 60000) % 60;
   byte nowMinute, nowSec, nowHour;
   rtcGetTime( &nowHour, &nowMinute, &nowSec);
 
@@ -227,7 +234,7 @@ void runSched() {
     rtcStart();
   }
 
-  if ( 1 ) // debug special sat tx 10 seconds after power up TODO TURN off
+  if ( 1 ) // debug special sat tx 15 seconds after power up TODO TURN off
   {
     static byte firstTime = 1;
     if ( firstTime  && ( nowTime > 15 * 1000 ) )
@@ -236,13 +243,26 @@ void runSched() {
       firstTime = 0;
     }
   }
-  else
+
+  if (1)
   {
-    // TODO - add hour check here and schedule
-    if ( ( (nowMinute / 15) != (prevMinute / 15) ) && ( nowTime > 30000 ) )
+    if ( (nowHour >= 7) && (nowHour <= 16 ) )
     {
-      DEBUG( "Scheudle start sat" );
-      satStart();
+      // day
+      if ( ( (nowMinute / 15) != (prevMinute / 15) ) && ( nowTime > 30000 ) )
+      {
+        DEBUG( "Scheudle start sat" );
+        satStart();
+      }
+    }
+    else
+    {
+      //night
+      if ( ( nowHour != prevHour ) && ( nowTime > 30000 ) )
+      {
+        DEBUG( "Scheudle start sat" );
+        satStart();
+      }
     }
   }
 
@@ -309,6 +329,7 @@ void runSched() {
     satRun();
   }
 
+  prevHour = nowHour;
   prevMinute = nowMinute;
   prevSec = nowSec;
 
@@ -362,8 +383,7 @@ void windRun()
 {
   //DEBUG( "In windRun" );
 
-
-  delay( 5 ); // TODO measure time to stable from power on
+  delay( 20 ); // TODO measure time to stable from power on
 
   //if ( nowTime < windStartTime + 100 )
   //{
@@ -900,12 +920,15 @@ void satRun()
     DEBUG("Would have done Sat TX here ==================================");
   }
 
+  digitalWrite(ledPin, LOW);
+
   //DEBUG2( "sat msg's left = " ,  sat.getWaitingMessageCount() );
   satStop();
 }
 
 void satStop()
 {
+  digitalWrite(ledPin, LOW);
   sat.sleep();
   satActive = 0;
 }
