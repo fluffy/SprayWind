@@ -1,20 +1,20 @@
-/* 
+/*
  Copyright (c) 2015, Cullen Jennings <fluffy@iii.ca> All rights reserved.
- 
+
  Redistribution and use in source and binary forms, with or without
- modification, are permitted provided that the following conditions are met: 
- 
+ modification, are permitted provided that the following conditions are met:
+
  1. Redistributions of source code must retain the above copyright notice, this
- list of conditions and the following disclaimer. 
- 
+ list of conditions and the following disclaimer.
+
  2. Redistributions in binary form must reproduce the above copyright notice,
  this list of conditions and the following disclaimer in the documentation
- and/or other materials provided with the distribution. 
- 
- 3. Neither the name of Cullen Jennings nor the names of its contributors may 
- be used to endorse or promote products derived from this software without 
+ and/or other materials provided with the distribution.
+
+ 3. Neither the name of Cullen Jennings nor the names of its contributors may
+ be used to endorse or promote products derived from this software without
  specific prior written permission.
- 
+
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,::w BUT NOT LIMITED TO, THE IMPLIED
  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -225,20 +225,22 @@ void runSched() {
     rtcStart();
   }
 
-  // TODO - add hour check here and schedule
-  if ( ( (nowMinute / 15) != (prevMinute / 15) ) && ( nowTime > 30000 ) )
-  {
-    DEBUG( "Scheudle start sat" );
-    satStart();
-  }
-
   if ( 1 ) // debug special sat tx 10 seconds after power up TODO TURN off
   {
     static byte firstTime = 1;
-    if ( firstTime  && ( nowTime > 10 * 1000 ) )
+    if ( firstTime  && ( nowTime > 15 * 1000 ) )
     {
       satStart();
       firstTime = 0;
+    }
+  }
+  else
+  {
+    // TODO - add hour check here and schedule
+    if ( ( (nowMinute / 15) != (prevMinute / 15) ) && ( nowTime > 30000 ) )
+    {
+      DEBUG( "Scheudle start sat" );
+      satStart();
     }
   }
 
@@ -351,7 +353,7 @@ void windStart()
 
   windStartTime = nowTime;
   windActive = 1;
-  lastWindSpeedMPSx100 = 0xFFFF; // correct for long ? TODO 
+  lastWindSpeedMPSx100 = 0xFFFF; // correct for long ? TODO
 }
 
 void windRun()
@@ -406,6 +408,14 @@ long windGetSpeedMPSx100()
 {
   return lastWindSpeedMPSx100;
 }
+
+
+long windGetGustSpeedMPSx100()
+{
+  return lastWindSpeedMPSx100 * 2; // TODO
+}
+
+
 
 /****   RTC stuff  ****/
 unsigned long rtcStartTime = 0;
@@ -472,7 +482,7 @@ void rtcRun()
 
   s = 0xFF;
 
-  if (1) 
+  if (1)
   {
     Wire.beginTransmission(rtcAddress);
     Wire.write(byte(0x00));
@@ -495,15 +505,15 @@ void rtcRun()
 
   if ( (s > 60) || ( m > 60 ) || ( h > 24 ) )
   {
-      // got a bogus read of RTC - just go to fake it mode
-      DEBUG("RTC Error - using FAKE TIME" );
-      unsigned long t = millis(); //
-      t = t / 1000; // sec
-      s = (t % 60);
-      t = t / 60; // now in min
-      m = (t % 60);
-      t = t / 60; //now in hour
-      h = (t % 24);   
+    // got a bogus read of RTC - just go to fake it mode
+    DEBUG("RTC Error - using FAKE TIME" );
+    unsigned long t = millis(); //
+    t = t / 1000; // sec
+    s = (t % 60);
+    t = t / 60; // now in min
+    m = (t % 60);
+    t = t / 60; //now in hour
+    h = (t % 24);
   }
 
   if (1) // TODO
@@ -522,7 +532,7 @@ void rtcRun()
 void rtcStop()
 {
 
-    rtcActive = 0;
+  rtcActive = 0;
 }
 
 void rtcGetTime(byte* hour, byte* m, byte* sec)
@@ -534,7 +544,7 @@ void rtcGetTime(byte* hour, byte* m, byte* sec)
   *m = ( (seconds / 60) % 60 );
   *hour = ( (seconds / 3600) % 24 );
 
-  if ( 0 ) 
+  if ( 0 )
   {
     DEBUG_NOCR( "rtcGetTime = " );
     DEBUG_NOCR( *hour ); DEBUG_NOCR( ":" );
@@ -603,9 +613,9 @@ void dispSetup()
 {
   DEBUG("start dispSetup");
 
-    Wire.beginTransmission(displayAddress);
-    Wire.write( 0x7A );  Wire.write(  0xFF ); // full brightness
-    Wire.endTransmission();
+  Wire.beginTransmission(displayAddress);
+  Wire.write( 0x7A );  Wire.write(  0xFF ); // full brightness
+  Wire.endTransmission();
 
   DEBUG("done dispSetup");
 }
@@ -681,9 +691,9 @@ void dispRun()
 
     case 3: // time since lat sat tx
       {
-        long delta = ( nowTime  - satGetLastTxTime() ) / 1000; 
-        // delta = delta / 60  // TODO - make minutes 
-        dispShow( '-', (delta/100)%10, (delta/10)%10, delta%10 , -1 );
+        long delta = ( nowTime  - satGetLastTxTime() ) / 1000;
+        // delta = delta / 60  // TODO - make minutes
+        dispShow( '-', (delta / 100) % 10, (delta / 10) % 10, delta % 10 , -1 );
       }
       break;
 
@@ -813,46 +823,63 @@ void satRun()
   int sigQuality ;
   int err;
 
-  if (0) // TODO - only for debug ? 
+  if (1) // TODO - only for debug ?
   {
-  err = sat.getSignalQuality(sigQuality);
-  if (err != 0)
-  {
-    DEBUG2( "getSignalQuality failed err=" , err );
-    satLastErr = err;
-    satStop();
-    return;
+    err = sat.getSignalQuality(sigQuality);
+    if (err != 0)
+    {
+      DEBUG2( "getSignalQuality failed err=" , err );
+      satLastErr = err;
+      satStop();
+      return;
+    }
+    DEBUG2( "Sat signal quality = " , sigQuality );
   }
-  DEBUG2( "Sat signal quality = " , sigQuality );
-  }
-  
+
   String satMsg;
-  satMsg.reserve(20); // TODO - set size and move to 
-
-  long w = windGetSpeedMPSx100();  
+  satMsg.reserve(115); // TODO - set size
+  long w = windGetSpeedMPSx100();
+  long g = windGetGustSpeedMPSx100();
   int v =  batGetVoltageX10();
-     
-  satMsg = "{ 'v'=";
-  satMsg += v/10 ;
-  satMsg += ".";
-  satMsg += v%10 ;
-  
-  satMsg += ", 'w'=";
-  satMsg += w/100 ;
-  satMsg += ".";
-  satMsg += (w/10)%10 ;
-  if ( w%10 != 0 ) 
-  {
-    satMsg += w%10 ;
-  }
-  satMsg += " }";
 
+  satMsg = "{\"bn\":\"RB8920/\",";
+  //satMsg += "\"ver\":1,";
+  satMsg += "\"bu\":\"m/s\",";
+  satMsg += "\"e\":[";
+
+  satMsg += "{\"n\":\"battery\",\"u\":\"V\",\"v\":";
+  satMsg += v / 10 ;
+  satMsg += ".";
+  satMsg += v % 10 ;
+  satMsg += "},";
+
+  satMsg += "{\"n\":\"gust\",\"v\":";
+  satMsg += g / 100 ;
+  satMsg += ".";
+  satMsg += (g / 10) % 10 ;
+  if ( g % 10 != 0 )
+  {
+    satMsg += g % 10 ;
+  }
+  satMsg += "},";
+
+  satMsg += "{\"n\":\"wind\",\"v\":";
+  satMsg += w / 100 ;
+  satMsg += ".";
+  satMsg += (w / 10) % 10 ;
+  if ( w % 10 != 0 )
+  {
+    satMsg += w % 10 ;
+  }
+  satMsg += "}";
+
+  satMsg += "]}";
   DEBUG2( "satMsg=", satMsg );
   DEBUG2( "satMsg len=", satMsg.length() );
- 
-  if (0) // TODO enable
+
+  if (1) // TODO enable
   {
-    err = sat.sendSBDText("1");
+    err = sat.sendSBDText( satMsg.c_str() );
     if (err != 0)
     {
       DEBUG2( "sat sendSBDText failed: ", err );
@@ -872,7 +899,7 @@ void satRun()
   }
 
   //DEBUG2( "sat msg's left = " ,  sat.getWaitingMessageCount() );
-  satStop(); 
+  satStop();
 }
 
 void satStop()
