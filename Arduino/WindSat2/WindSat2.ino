@@ -1,4 +1,31 @@
-
+/* 
+ Copyright (c) 2015, Cullen Jennings <fluffy@iii.ca> All rights reserved.
+ 
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met: 
+ 
+ 1. Redistributions of source code must retain the above copyright notice, this
+ list of conditions and the following disclaimer. 
+ 
+ 2. Redistributions in binary form must reproduce the above copyright notice,
+ this list of conditions and the following disclaimer in the documentation
+ and/or other materials provided with the distribution. 
+ 
+ 3. Neither the name of Cullen Jennings nor the names of its contributors may 
+ be used to endorse or promote products derived from this software without 
+ specific prior written permission.
+ 
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,::w BUT NOT LIMITED TO, THE IMPLIED
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 
 #include <SoftwareSerial.h>
 #include <IridiumSBD.h>
@@ -205,12 +232,13 @@ void runSched() {
     satStart();
   }
 
-  if ( 1 ) // debug special sat tx 30 seconds after power up TODO TURN off
+  if ( 1 ) // debug special sat tx 10 seconds after power up TODO TURN off
   {
     static byte firstTime = 1;
-    if ( firstTime  && ( nowTime > 20000 ) )
+    if ( firstTime  && ( nowTime > 10 * 1000 ) )
     {
       satStart();
+      firstTime = 0;
     }
   }
 
@@ -310,7 +338,7 @@ void deepSleep(long t/* seconds*/)
 
 /****   Wind stuff  ****/
 unsigned long windStartTime;
-long lastWindSpeedMPSx100 = 0;
+long lastWindSpeedMPSx100 = 0; // TODO int or long ????
 
 void windSetup()
 {
@@ -323,7 +351,7 @@ void windStart()
 
   windStartTime = nowTime;
   windActive = 1;
-  lastWindSpeedMPSx100 = 0xFFFF;
+  lastWindSpeedMPSx100 = 0xFFFF; // correct for long ? TODO 
 }
 
 void windRun()
@@ -371,7 +399,7 @@ void windStop()
   {
     windActive = 0;
   }
-  DEBUG2( "In windStop speed x100 = " , lastWindSpeedMPSx100 );
+  //DEBUG2( "In windStop speed x100 = " , lastWindSpeedMPSx100 );
 }
 
 long windGetSpeedMPSx100()
@@ -558,7 +586,7 @@ void batStop()
   {
     batActive = 0;
   }
-  DEBUG2( "in batStop voltage x10 = " , lastBatVoltageX10 );
+  //DEBUG2( "in batStop voltage x10 = " , lastBatVoltageX10 );
 }
 
 int batGetVoltageX10()
@@ -613,7 +641,7 @@ void dispRun()
 
     case 0: // wind knots
       {
-        int w;
+        long w;
         w  = windGetSpeedMPSx100();
         if ( w == 0xFFFF )
         {
@@ -785,6 +813,8 @@ void satRun()
   int sigQuality ;
   int err;
 
+  if (0) // TODO - only for debug ? 
+  {
   err = sat.getSignalQuality(sigQuality);
   if (err != 0)
   {
@@ -793,10 +823,34 @@ void satRun()
     satStop();
     return;
   }
-
   DEBUG2( "Sat signal quality = " , sigQuality );
+  }
+  
+  String satMsg;
+  satMsg.reserve(20); // TODO - set size and move to 
 
-  if (1)
+  long w = windGetSpeedMPSx100();  
+  int v =  batGetVoltageX10();
+     
+  satMsg = "{ 'v'=";
+  satMsg += v/10 ;
+  satMsg += ".";
+  satMsg += v%10 ;
+  
+  satMsg += ", 'w'=";
+  satMsg += w/100 ;
+  satMsg += ".";
+  satMsg += (w/10)%10 ;
+  if ( w%10 != 0 ) 
+  {
+    satMsg += w%10 ;
+  }
+  satMsg += " }";
+
+  DEBUG2( "satMsg=", satMsg );
+  DEBUG2( "satMsg len=", satMsg.length() );
+ 
+  if (0) // TODO enable
   {
     err = sat.sendSBDText("1");
     if (err != 0)
