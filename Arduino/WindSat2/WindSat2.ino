@@ -342,7 +342,7 @@ void windRun()
   int val = analogRead(windPin);
   //DEBUG2( "wind raw value = " , val );
 
-  //val = 242; // TODO - this is about 15 knots
+  val = 242; // TODO - this is about 15 knots
 
   if ( val < 100 )
   {
@@ -444,7 +444,7 @@ void rtcRun()
 
   s = 0xFF;
 
-  if (1) // TODO enable
+  if (1) 
   {
     Wire.beginTransmission(rtcAddress);
     Wire.write(byte(0x00));
@@ -467,8 +467,6 @@ void rtcRun()
 
   if ( (s > 60) || ( m > 60 ) || ( h > 24 ) )
   {
-    if (1) // TODO
-    {
       // got a bogus read of RTC - just go to fake it mode
       DEBUG("RTC Error - using FAKE TIME" );
       unsigned long t = millis(); //
@@ -477,12 +475,7 @@ void rtcRun()
       t = t / 60; // now in min
       m = (t % 60);
       t = t / 60; //now in hour
-      h = (t % 24);
-    }
-    else
-    {
-      h = m = s = 6; // TODO remove
-    }
+      h = (t % 24);   
   }
 
   if (1) // TODO
@@ -500,11 +493,8 @@ void rtcRun()
 
 void rtcStop()
 {
-  //DEBUG( "In rtcStop");
-  //if ( !dispActive ) // TODO decide
-  {
+
     rtcActive = 0;
-  }
 }
 
 void rtcGetTime(byte* hour, byte* m, byte* sec)
@@ -512,14 +502,11 @@ void rtcGetTime(byte* hour, byte* m, byte* sec)
   long deltaSeconds = (nowTime - rtcStartTime) / 1000; // TODO - what happens wrap ...
   unsigned long seconds = rtcStartSeconds + deltaSeconds;
 
-  //seconds = rtcStartSeconds;  // TODO REMOVE
-  //DEBUG2( "seconds=" , seconds );
-
   *sec = (seconds % 60);
   *m = ( (seconds / 60) % 60 );
   *hour = ( (seconds / 3600) % 24 );
 
-  if ( 0 ) // TODO
+  if ( 0 ) 
   {
     DEBUG_NOCR( "rtcGetTime = " );
     DEBUG_NOCR( *hour ); DEBUG_NOCR( ":" );
@@ -587,12 +574,11 @@ int batGetVoltageX10()
 void dispSetup()
 {
   DEBUG("start dispSetup");
-  if ( 1 ) // TODO
-  {
+
     Wire.beginTransmission(displayAddress);
     Wire.write( 0x7A );  Wire.write(  0xFF ); // full brightness
     Wire.endTransmission();
-  }
+
   DEBUG("done dispSetup");
 }
 
@@ -669,7 +655,6 @@ void dispRun()
       {
         long delta = ( nowTime  - satGetLastTxTime() ) / 1000; 
         // delta = delta / 60  // TODO - make minutes 
-        //dispShow( 'n', 'o', ' ', ' ' , 0 );
         dispShow( '-', (delta/100)%10, (delta/10)%10, delta%10 , -1 );
       }
       break;
@@ -832,10 +817,8 @@ void satRun()
     DEBUG("Would have done Sat TX here ==================================");
   }
 
-
   //DEBUG2( "sat msg's left = " ,  sat.getWaitingMessageCount() );
-
-  satStop(); // TODO
+  satStop(); 
 }
 
 void satStop()
