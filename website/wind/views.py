@@ -57,6 +57,41 @@ def getInfo( request, sensorName ):
     return HttpResponse( html )
 
 
+
+def rockBlock( request ):
+	sensorName = "sprayWind"
+  	now = datetime.datetime.now()
+
+	log =  "rockBlock at %s \n" % now
+	log += "request method = %s \n" % request.method 
+	log += "request body = %s \n\n" % request.body 
+
+    log += "imei = %s \n" % request.POST.get("imei");
+    log += "momsn = %s \n" % request.POST.get("momsn");
+    log += "transmit_time = %s \n" % request.POST.get("transmit_time");
+    log += "iridium_latitude = %s \n" % request.POST.get("iridium_latitude");
+    log += "iridium_longitude = %s \n" % request.POST.get("iridium_longitude");
+    log += "iridium_cep = %s \n" % request.POST.get("iridium_cep");
+    log += "data = %s \n" % request.POST.get("data");
+     
+	curWind = -1.0
+	minWind = -1.0
+	avgWind = -1.0
+	maxWind = -1.0
+	curTemp = 0.0
+	curVoltage = 0.0
+
+
+    log += "wind %s (min,avg,max) = %s,%s,%s temp = %s battery = %s \n"%( curWind, minWind, avgWind, maxWind , curTemp, curVoltage )
+ 	r = SensorReading( sensorID=sensorName, time=now, info=log, 
+ 			curWind=curWind, minWind=minWind, avgWind=avgWind, maxWind=maxWind, temperature=curTemp, voltage=curVoltage )
+  	r.save()
+
+	return HttpResponse( )
+
+
+
+
 def cloudMailInJson( request ):
 	sensorName = "sprayWind"
   	now = datetime.datetime.now()
