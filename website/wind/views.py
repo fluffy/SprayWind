@@ -32,6 +32,7 @@ from django.shortcuts import render
 import datetime
 import json
 import string
+import codecs
 
 from website.wind.models import SensorReading
 
@@ -62,9 +63,13 @@ def rockBlock( request ):
     sensorName = "sprayWind"
     now = datetime.datetime.now()
 
+    log =  "\n-------------------------------------------------------------------\n" 
     log =  "rockBlock at %s \n" % now
     log += "request method = %s \n" % request.method 
-    log += "request body = %s \n\n" % request.body 
+    log += "request body = %s \n\n" % request.body
+    
+    log += "device_type = %s \n" % request.POST.get("device_type")
+    log += "serial = %s \n" % request.POST.get("serial")
     log += "imei = %s \n" % request.POST.get("imei")
     log += "momsn = %s \n" % request.POST.get("momsn")
     log += "transmit_time = %s \n" % request.POST.get("transmit_time")
@@ -80,11 +85,26 @@ def rockBlock( request ):
     curTemp = 0.0
     curVoltage = 0.0
 
-    log += "wind %s (min,avg,max) = %s,%s,%s temp = %s battery = %s \n"%( curWind, minWind, avgWind, maxWind , curTemp, curVoltage )
+    try:
+        hexData = request.POST.get("data")
+        jsonData = codecs.decode( hexData , "hex" )
+        senml = json.loads( jsonData ); 
+
+        for reading in senml[ 'e' ]:
+			if reading['n'] == "battery": curVoltage = reading['v']
+			if reading['n'] == "wind":    curWind    = reading['v']
+			if reading['n'] == "gust":    maxWind    = reading['v']
+
+    except Exception as e:
+		log += "Problem parsing the rockblock data. Exception %s \n"%e
+        
+    log += "wind %s (min,avg,max)=%s,%s,%s temp=%s battery=%s \n"%( curWind, minWind, avgWind, maxWind , curTemp, curVoltage )
     r = SensorReading( sensorID=sensorName, time=now, info=log, 
  		curWind=curWind, minWind=minWind, avgWind=avgWind, maxWind=maxWind, temperature=curTemp, voltage=curVoltage )
     r.save()
 
+    log += "\n\n"
+    
     return HttpResponse( )
 
 
