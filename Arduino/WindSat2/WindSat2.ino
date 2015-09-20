@@ -53,6 +53,12 @@
 #include <Wire.h>
 
 
+#include <avr/sleep.h>
+#include <avr/power.h>
+#include <avr/wdt.h>
+
+
+
 static const int btnPin = 2;
 static const int eBtnPin = 3;
 static const int auxPwrEnablePin = 4;
@@ -104,6 +110,8 @@ byte prevHour = -1;
 byte prevMinute = -1;
 byte prevSec = -1;
 
+
+int numDeepSleeps = 0; // number of times powered down since last RTC sync
 
 void setup()
 {
@@ -157,6 +165,9 @@ void setup()
   }
 
   dispStart(); // don't start till after have a time or rtc remains active until display is not
+
+
+  setupSleep();
 
   DEBUG( "Done SETUP -----------------" );
 }
@@ -370,7 +381,7 @@ void runSched() {
   prevSec = nowSec;
 
 
- /* controll power OFF */
+  /* controll power OFF */
   if ( 1 ) // TODO
   {
     if ( ! ( rtcActive || windActive || dispActive || satActive ) )
@@ -378,7 +389,7 @@ void runSched() {
       auxPowerOff();
     }
   }
-  
+
   if ( !satActive && !rtcActive && !windActive && !dispActive && !batActive )
   {
     //DEBUG( "Scheudle start deepSleep" );
@@ -386,7 +397,52 @@ void runSched() {
   }
 }
 
-void deepSleep(long t/* seconds*/)
+
+ISR(WDT_vect) // interupt handler for watchdog time
+{
+}
+
+void setupSleep()
+{
+  MCUSR &= ~(1 << WDRF); // don't reset on WDT
+
+  WDTCSR |= (1 << WDCE) | (1 << WDE); // setup prescaler
+  WDTCSR = 1 << WDP0 | 1 << WDP3; // set pre scaler to 4 seconds
+
+  WDTCSR |= _BV(WDIE); // emable WDT interupt
+}
+
+void deepSleep( long t /* seconds */ )
+{
+  if ( t < 8 )
+  {
+    lightSleep(t);
+    return;
+  }
+  DEBUG2( "in Deep sleep ", t );
+
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+
+  DEBUG("power DOWN");
+  delay( 150 );
+
+  sleep_enable();
+  sleep_mode(); // go to sleep
+
+  // we sleep here
+
+  sleep_disable();
+  power_all_enable();
+
+  numDeepSleeps++;
+
+  delay( 50 );
+
+  DEBUG("power UP");
+}
+
+
+void lightSleep(long t/* seconds*/)
 {
   DEBUG2( "in Deep sleep ", t );
   if ( t > 10 ) t = 10; // TODO - consider remove
@@ -583,6 +639,7 @@ void rtcRun()
 
   byte h, m, s;
   rtcStartTime = nowTime;
+  numDeepSleeps = 0;
 
   s = 0xFF;
 
@@ -645,7 +702,7 @@ void rtcStop()
 
 void rtcGetTime(byte* hour, byte* m, byte* sec)
 {
-  long deltaSeconds = (nowTime - rtcStartTime) / 1000; // TODO - what happens wrap ...
+  long deltaSeconds = (nowTime - rtcStartTime) / 1000  + (long)numDeepSleeps * 8  ; // TODO - what happens wrap ...
   unsigned long seconds = rtcStartSeconds + deltaSeconds;
 
   *sec = (seconds % 60);
@@ -699,8 +756,8 @@ void batRun()
   v = v + 8; // TODO - calibrate - adjust for protection diode on input
   lastBatVoltageX10 = v;
 
-  // note - reported 12.4 when actually was 12.6 
-  
+  // note - reported 12.5 when actually was 12.6
+
   batStop();
 }
 
@@ -841,9 +898,9 @@ void dispRun()
       }
       break;
 
-    case 3: // time since lat sat tx
+    case 3: // time since last sat tx
       {
-        long delta = ( nowTime - satGetLastTxTime() ) / 1000;
+        long delta = ( nowTime - satGetLastTxTime() ) / 1000; // TODO - likely wrong due to deep sleep and milis not advancing
         delta = delta / 60;
         dispShow( '-', (delta / 100) % 10, (delta / 10) % 10, delta % 10 , 0 );
       }
@@ -1096,7 +1153,7 @@ void satRun()
     {
       DEBUG("Sat Transmit OK **********************************************");
       satLastErr = 0;
-      satLastTxTime = millis();
+      satLastTxTime = millis(); // TODO - this will compute wrong with sleeps - need to set with RTC
       satStop();
       windReset();
     }
@@ -1104,7 +1161,7 @@ void satRun()
   else
   {
     satLastErr = 0;
-    satLastTxTime = millis();
+    satLastTxTime = millis(); // TODO - this will compute wrong with sleeps - need to set with RTC
     satStop();
   }
 
@@ -1138,7 +1195,7 @@ byte satGetError()
 
 unsigned long satGetLastTxTime()
 {
-  return satLastTxTime;
+  return satLastTxTime; // TODO - prob wrong where used since based on milis with no deep sleep adjustment
 }
 
 
