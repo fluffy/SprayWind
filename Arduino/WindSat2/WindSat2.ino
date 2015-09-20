@@ -31,21 +31,21 @@
 
 // TODO - perhaps average the wind values
 
-// TODO - adjust battery voltage to account for protection dioade (recalibrate) 
+// TODO - adjust battery voltage to account for protection dioade (recalibrate)
 
-// TODO - make meassure real wind 
+// TODO - make meassure real wind
 
-// TODO - check what happens sensor error all way back to spray wind 
+// TODO - check what happens sensor error all way back to spray wind
 
-// TODO - turn off debug 
+// TODO - turn off debug
 
-// TODO - if get trasnmition error, try a few more times 
+// TODO - if get trasnmition error, try a few more times
 
-// TODO - turn on power managment 
+// TODO - turn on power managment
 
-// TODO - measure power usage 
+// TODO - measure power usage
 
-// TODO - turn off arduino for deep sleep 
+// TODO - turn off arduino for deep sleep
 
 
 
@@ -81,6 +81,11 @@ IridiumSBD sat( satSerial, satPwrEnablePin );
 #define DEBUG2( X, Y ) Serial.print( X ); Serial.println( Y );
 #define DEBUG_NOCR2( X,Y ) Serial.print( X) ; Serial.print( Y );
 
+//#define DEBUG( X ) ;
+//#define DEBUG_NOCR( X ) ;
+//#define DEBUG2( X, Y ) ;
+//#define DEBUG_NOCR2( X,Y ) ;
+
 byte satActive = 0;
 byte rtcActive = 0;
 byte windActive = 0;
@@ -90,7 +95,6 @@ volatile byte dispActive = 0;
 /****   Display stuff  ****/
 volatile unsigned long dispStartTime = 0;
 volatile byte dispItem = 0;
-
 
 
 byte prevHour = -1;
@@ -177,7 +181,6 @@ void auxPowerOn()
 void auxPowerOff()
 {
   // TODO - sleep sat and check sleeping before power down ?
-
   if ( !auxPowerStatus )
   {
     return;
@@ -304,7 +307,6 @@ void runSched() {
     }
   }
 
-
   /* controll power */
   if ( 0 ) // TODO
   {
@@ -381,11 +383,25 @@ void deepSleep(long t/* seconds*/)
 
 /****   Wind stuff  ****/
 unsigned long windStartTime;
-long lastWindSpeedMPSx100 = 0; // TODO int or long ????
+unsigned int  lastWindSpeedMPSx100 = 0;
+unsigned int  maxWindSpeedMPSx100 = 0;
+unsigned long sumWindSpeedMPSx100 = 0;
+unsigned int  countWindSpeed = 0;
+
 
 void windSetup()
 {
   DEBUG( "in windSetup");
+
+  windReset();
+}
+
+void windReset()
+{
+  lastWindSpeedMPSx100 = 0xFFFF;
+  maxWindSpeedMPSx100 = 0;
+  sumWindSpeedMPSx100 = 0;
+  countWindSpeed = 0;
 }
 
 void windStart()
@@ -409,11 +425,13 @@ void windRun()
   //}
 
   // sensor returns 0.4 v for 0 m/s wind and 2.0v for max wind of 32.4 m/s
-  int val = analogRead(windPin);
+  unsigned int val = analogRead(windPin); // max val is 1023 at 3.3 v
   //DEBUG2( "wind raw value = " , val );
 
-  val = 242; // TODO - this is about 15 knots
+  //val = 242; // TODO - this is about 15 knots
 
+  val = prevMinute * 2 + 124; // TODO - remove 
+  
   if ( val < 100 )
   {
     lastWindSpeedMPSx100 = 0xFFFF;
@@ -426,10 +444,16 @@ void windRun()
     }
 
     val = val - 124;
-    val = val * 13;
+    val = val * 13; // max val is 11,687
     val = val / 2;
 
     lastWindSpeedMPSx100 = val;
+    if ( lastWindSpeedMPSx100 > maxWindSpeedMPSx100 )
+    {
+      maxWindSpeedMPSx100 = lastWindSpeedMPSx100;
+    }
+    sumWindSpeedMPSx100 += (unsigned long)lastWindSpeedMPSx100;
+    countWindSpeed++;
   }
 
   windStop();
@@ -444,17 +468,23 @@ void windStop()
   //DEBUG2( "In windStop speed x100 = " , lastWindSpeedMPSx100 );
 }
 
-long windGetSpeedMPSx100()
+unsigned int windGetSpeedMPSx100()
 {
   return lastWindSpeedMPSx100;
 }
 
 
-long windGetGustSpeedMPSx100()
+unsigned int windGetGustSpeedMPSx100()
 {
-  return lastWindSpeedMPSx100 * 2; // TODO
+  return lastWindSpeedMPSx100; 
 }
 
+
+unsigned int windGetAvgSpeedMPSx100()
+{
+  unsigned long avg = sumWindSpeedMPSx100 / (unsigned long)countWindSpeed;
+  return avg; 
+}
 
 
 /****   RTC stuff  ****/
@@ -596,7 +626,7 @@ void rtcGetTime(byte* hour, byte* m, byte* sec)
 /*****  Batter Monitor Stuff  *******/
 
 unsigned long batStartTime;
-int lastBatVoltageX10 = 0;
+unsigned int lastBatVoltageX10 = 0;
 
 void batSetup()
 {
@@ -625,6 +655,7 @@ void batRun()
   int v = analogRead( batSensePin );
   v = v * 30; // will overflow it scale by value larger than this
   v = v / 145;
+  v = v + 8; // TODO - calibrate - adjust for protection diode on input
   lastBatVoltageX10 = v;
 
   batStop();
@@ -639,7 +670,7 @@ void batStop()
   //DEBUG2( "in batStop voltage x10 = " , lastBatVoltageX10 );
 }
 
-int batGetVoltageX10()
+unsigned int batGetVoltageX10()
 {
   return lastBatVoltageX10;
 }
@@ -691,11 +722,11 @@ void dispRun()
 
     case 0: // wind knots
       {
-        long w;
+        unsigned int w;
         w  = windGetSpeedMPSx100();
         if ( w == 0xFFFF )
         {
-          dispShow(  '-', '-', '-', '-', 0 );
+          dispShow(  '-', '-', '-', 'n', 0 );
         }
         else
         {
@@ -710,7 +741,7 @@ void dispRun()
       {
         byte hour,  m,  sec;
         rtcGetTime( &hour, &m, &sec);
-        if ( 1 ) // TODO
+        if ( 0 )
         {
           dispShow( m / 10, m % 10 , sec / 10, sec % 10, -2 );
         }
@@ -723,7 +754,7 @@ void dispRun()
 
     case 2: // voltage
       {
-        long v;
+        unsigned int v;
         v = batGetVoltageX10();
         dispShow( ' ', (v / 100) % 10, (v / 10) % 10, v % 10, 1 );
       }
@@ -731,9 +762,9 @@ void dispRun()
 
     case 3: // time since lat sat tx
       {
-        long delta = ( nowTime  - satGetLastTxTime() ) / 1000;
-        // delta = delta / 60  // TODO - make minutes
-        dispShow( '-', (delta / 100) % 10, (delta / 10) % 10, delta % 10 , -1 );
+        long delta = ( nowTime - satGetLastTxTime() ) / 1000;
+        delta = delta / 60;
+        dispShow( '-', (delta / 100) % 10, (delta / 10) % 10, delta % 10 , 0 );
       }
       break;
 
@@ -758,6 +789,7 @@ void dispRun()
   }
 }
 
+
 void dispNext()
 {
   // increment to display next Item
@@ -768,7 +800,6 @@ void dispNext()
     dispItem = 0;
   }
 }
-
 
 
 void dispShow( byte a, byte b, byte c, byte d, int n )
@@ -820,6 +851,7 @@ void dispShow( byte a, byte b, byte c, byte d, int n )
   Wire.endTransmission();
 }
 
+
 void dispStop()
 {
   dispActive = 0;
@@ -831,6 +863,7 @@ void dispStop()
 
 unsigned long satStartTime;
 unsigned long satLastTxTime;
+byte satTxCount;
 byte satLastErr;
 
 void satSetup()
@@ -852,6 +885,7 @@ void satStart()
   satActive = 1;
   satStartTime = nowTime;
   satLastErr = 0xFF;
+  satTxCount = 0;
 
   sat.begin();
 }
@@ -863,7 +897,7 @@ void satRun()
   int sigQuality ;
   int err;
 
-  if (1) // TODO - only for debug ?
+  if (1)
   {
     err = sat.getSignalQuality(sigQuality);
     if (err != 0)
@@ -874,13 +908,30 @@ void satRun()
       return;
     }
     DEBUG2( "Sat signal quality = " , sigQuality );
+
+    if ( sigQuality <= 2 ) {
+      // wait 5 minutes for better sigQuality
+      if ( nowTime <= satStartTime + 5 * 60 * 1000 )
+      {
+        DEBUG( "Waiting for better sat signal" );
+        digitalWrite(ledPin, LOW);
+        return;
+      }
+      else
+      {
+        DEBUG( "Gave up Waiting for better sat signal" );
+      }
+    }
+
   }
 
+  satTxCount++;
+
   String satMsg;
-  satMsg.reserve(115); // TODO - set size
-  long w = windGetSpeedMPSx100();
-  long g = windGetGustSpeedMPSx100();
-  int v =  batGetVoltageX10();
+  satMsg.reserve(118); // TODO - set size
+  unsigned int w = windGetAvgSpeedMPSx100();
+  unsigned int g = windGetGustSpeedMPSx100();
+  unsigned int v = batGetVoltageX10();
 
   satMsg = "{\"bn\":\"RB8920/\",";
   //satMsg += "\"ver\":1,";
@@ -891,6 +942,12 @@ void satRun()
   satMsg += v / 10 ;
   satMsg += ".";
   satMsg += v % 10 ;
+  if (1) // TODO - Sig + retry hack
+  {
+    satMsg += '0';
+    satMsg += sigQuality % 10 ;
+    satMsg += satTxCount % 10 ;
+  }
   satMsg += "},";
 
   satMsg += "{\"n\":\"gust\",\"v\":";
@@ -917,31 +974,26 @@ void satRun()
   DEBUG2( "satMsg=", satMsg );
   DEBUG2( "satMsg len=", satMsg.length() );
 
-  if (1) // TODO enable
+  err = sat.sendSBDText( satMsg.c_str() );
+  if (err != 0)
   {
-    err = sat.sendSBDText( satMsg.c_str() );
-    if (err != 0)
-    {
-      DEBUG2( "sat sendSBDText failed: ", err );
-      satLastErr = err;
-      satStop();
-      return;
-    }
-    satLastErr = 0;
-
-    satLastTxTime = millis();
-
-    DEBUG("Sat Transmit OK **********************************************");
+    DEBUG2( "sat sendSBDText failed: ", err );
+    satLastErr = err;
   }
   else
   {
-    DEBUG("Would have done Sat TX here ==================================");
+    DEBUG("Sat Transmit OK **********************************************");
+    satLastErr = 0;
+    satLastTxTime = millis();
+    satStop();
+  }
+
+  if ( satTxCount >= 3 ) // TODO - adjust - retry transmition 3 times
+  {
+    satStop();
   }
 
   digitalWrite(ledPin, LOW);
-
-  //DEBUG2( "sat msg's left = " ,  sat.getWaitingMessageCount() );
-  satStop();
 }
 
 void satStop()
