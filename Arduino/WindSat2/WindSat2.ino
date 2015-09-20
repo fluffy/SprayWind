@@ -27,9 +27,6 @@
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-// TODO - compute the gust values
-
-// TODO - perhaps average the wind values
 
 // TODO - adjust battery voltage to account for protection dioade (recalibrate)
 
@@ -39,14 +36,13 @@
 
 // TODO - turn off debug
 
-// TODO - if get trasnmition error, try a few more times
-
 // TODO - turn on power managment
 
 // TODO - measure power usage
 
 // TODO - turn off arduino for deep sleep
 
+// TODO - 4.7k pull up on SCA and SCL for I2C
 
 
 #include <SoftwareSerial.h>
@@ -86,6 +82,10 @@ IridiumSBD sat( satSerial, satPwrEnablePin );
 //#define DEBUG2( X, Y ) ;
 //#define DEBUG_NOCR2( X,Y ) ;
 
+byte disableDisplay = 0;
+byte disableRTC = 0;
+byte disableSat = 0;
+
 byte satActive = 0;
 byte rtcActive = 0;
 byte windActive = 0;
@@ -120,10 +120,17 @@ void setup()
     rtcSetTime();
   }
 
+  batSetup();
+  if ( batGetVoltageX10() < 90 )
+  {
+    DEBUG("bat voltage low - dispable SAT, RTC and DISPLAY");
+    disableDisplay = 1;
+    disableRTC = 1;
+    disableSat = 1;
+  }
   satSetup();
   rtcSetup();
   windSetup();
-  batSetup();
   dispSetup();
 
   rtcStart();
@@ -430,8 +437,8 @@ void windRun()
 
   //val = 242; // TODO - this is about 15 knots
 
-  val = prevMinute * 2 + 124; // TODO - remove 
-  
+  val = prevMinute * 2 + 124; // TODO - remove
+
   if ( val < 100 )
   {
     lastWindSpeedMPSx100 = 0xFFFF;
@@ -476,14 +483,14 @@ unsigned int windGetSpeedMPSx100()
 
 unsigned int windGetGustSpeedMPSx100()
 {
-  return lastWindSpeedMPSx100; 
+  return lastWindSpeedMPSx100;
 }
 
 
 unsigned int windGetAvgSpeedMPSx100()
 {
   unsigned long avg = sumWindSpeedMPSx100 / (unsigned long)countWindSpeed;
-  return avg; 
+  return avg;
 }
 
 
@@ -494,6 +501,10 @@ unsigned long rtcStartSeconds; // wall clock time of startTime
 void rtcSetup()
 {
   DEBUG( "In rtcSetup");
+  if ( disableRTC )
+  {
+    return;
+  }
 }
 
 void rtcSetTime() {
@@ -516,6 +527,12 @@ void rtcStart()
   if (rtcActive) return;
 
   DEBUG( "In rtcStart");
+  if ( disableRTC )
+  {
+    rtcActive = 0;
+    return;
+  }
+
   rtcStartTime = nowTime;
   rtcActive = 1;
 }
@@ -537,6 +554,12 @@ byte rawTime1, rawTime2, rawTime3;// raw time btyes
 
 void rtcRun()
 {
+  if ( disableRTC )
+  {
+    rtcStop();
+    return;
+  }
+
   //DEBUG( "In rtcRun");
 
   delay( 2 ); // mesure time from power on to usable
@@ -601,8 +624,11 @@ void rtcRun()
 
 void rtcStop()
 {
-
   rtcActive = 0;
+  if ( disableRTC )
+  {
+    return;
+  }
 }
 
 void rtcGetTime(byte* hour, byte* m, byte* sec)
@@ -632,6 +658,12 @@ void batSetup()
 {
   DEBUG( "in batSetup" );
   lastBatVoltageX10 = 0xFFFF;
+
+  batStart();
+  batRun();
+  batStop();
+
+  DEBUG2( "in batSetup voltage x10 = " , lastBatVoltageX10 );
 }
 
 void batStart()
@@ -683,16 +715,47 @@ unsigned int batGetVoltageX10()
 void dispSetup()
 {
   DEBUG("start dispSetup");
+  byte err;
+
+
+  if (disableDisplay)
+  {
+    DEBUG("Display disabled");
+    return;
+  }
 
   Wire.beginTransmission(displayAddress);
-  Wire.write( 0x7A );  Wire.write(  0xFF ); // full brightness
-  Wire.endTransmission();
+  DEBUG("0");
+  err = Wire.endTransmission(false);
+  if (err)
+  {
+    DEBUG2( "distSetup i2c error = " , err );
+  }
+
+  Wire.beginTransmission(displayAddress);
+  DEBUG("1");
+  Wire.write( 0x7A );
+
+  DEBUG("2");
+  Wire.write(  0xFF ); // full brightness
+
+  DEBUG("3");
+  err = Wire.endTransmission();
+  if (err)
+  {
+    DEBUG2( "distSetup i2c error = " , err );
+  }
 
   DEBUG("done dispSetup");
 }
 
 void dispStart()
 {
+  if (disableDisplay)
+  {
+    dispActive = 0;
+    return;
+  }
   if (dispActive) return;
 
   // this runs in interup so don;t do much here
@@ -701,8 +764,15 @@ void dispStart()
   dispItem = 0;
 }
 
+
 void dispRun()
 {
+  if (disableDisplay)
+  {
+    dispStop();
+    return;
+  }
+
   //DEBUG_NOCR2( "in dispRun " , dispItem );
 
   const long turnOffTime = 90000; // in ms
@@ -792,6 +862,11 @@ void dispRun()
 
 void dispNext()
 {
+  if (disableDisplay)
+  {
+    return;
+  }
+
   // increment to display next Item
   dispStartTime = nowTime;
   dispItem++;
@@ -804,6 +879,11 @@ void dispNext()
 
 void dispShow( byte a, byte b, byte c, byte d, int n )
 {
+  if (disableDisplay)
+  {
+    return;
+  }
+
   // DEBUG2( " n=", n );
 
   if (0)
@@ -855,6 +935,12 @@ void dispShow( byte a, byte b, byte c, byte d, int n )
 void dispStop()
 {
   dispActive = 0;
+
+  if (disableDisplay)
+  {
+    return;
+  }
+
   dispShow( ' ', ' ', ' ', ' ', 0 );
 }
 
@@ -871,10 +957,8 @@ void satSetup()
   satActive = 0;
 
   satSerial.begin( 19200 );
-
   sat.attachConsole(Serial);
   sat.attachDiags(Serial);
-
   sat.setPowerProfile(0);
 }
 
@@ -887,17 +971,20 @@ void satStart()
   satLastErr = 0xFF;
   satTxCount = 0;
 
-  sat.begin();
+  if ( !disableSat )
+  {
+    sat.begin();
+  }
 }
 
 void satRun()
 {
   DEBUG( "in satRun" );
 
-  int sigQuality ;
+  int sigQuality = 9;
   int err;
 
-  if (1)
+  if (!disableSat)
   {
     err = sat.getSignalQuality(sigQuality);
     if (err != 0)
@@ -936,6 +1023,7 @@ void satRun()
   satMsg = "{\"bn\":\"RB8920/\",";
   //satMsg += "\"ver\":1,";
   satMsg += "\"bu\":\"m/s\",";
+  // addding a base time makes this too large
   satMsg += "\"e\":[";
 
   satMsg += "{\"n\":\"battery\",\"u\":\"V\",\"v\":";
@@ -944,7 +1032,7 @@ void satRun()
   satMsg += v % 10 ;
   if (1) // TODO - Sig + retry hack
   {
-    satMsg += '0';
+    satMsg += 0;
     satMsg += sigQuality % 10 ;
     satMsg += satTxCount % 10 ;
   }
@@ -974,15 +1062,24 @@ void satRun()
   DEBUG2( "satMsg=", satMsg );
   DEBUG2( "satMsg len=", satMsg.length() );
 
-  err = sat.sendSBDText( satMsg.c_str() );
-  if (err != 0)
+  if ( !disableSat )
   {
-    DEBUG2( "sat sendSBDText failed: ", err );
-    satLastErr = err;
+    err = sat.sendSBDText( satMsg.c_str() );
+    if (err != 0)
+    {
+      DEBUG2( "sat sendSBDText failed: ", err );
+      satLastErr = err;
+    }
+    else
+    {
+      DEBUG("Sat Transmit OK **********************************************");
+      satLastErr = 0;
+      satLastTxTime = millis();
+      satStop();
+    }
   }
   else
   {
-    DEBUG("Sat Transmit OK **********************************************");
     satLastErr = 0;
     satLastTxTime = millis();
     satStop();
@@ -993,13 +1090,18 @@ void satRun()
     satStop();
   }
 
+
   digitalWrite(ledPin, LOW);
 }
 
 void satStop()
 {
+  if ( !disableSat )
+  {
+    sat.sleep();
+  }
+
   digitalWrite(ledPin, LOW);
-  sat.sleep();
   satActive = 0;
 }
 
