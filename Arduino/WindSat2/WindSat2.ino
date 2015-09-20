@@ -44,6 +44,9 @@
 
 // TODO - 4.7k pull up on SCA and SCL for I2C
 
+// measuure time for wind voltage measure to get stable after power up - look like 1.2 seconds
+
+
 
 #include <SoftwareSerial.h>
 #include <IridiumSBD.h>
@@ -112,6 +115,9 @@ void setup()
   pwrSetup();
   btnSetup();
 
+  auxPowerOn();
+  delay( 200 );
+
   Wire.begin();
   analogReference( DEFAULT ); // 3.3 V
 
@@ -121,6 +127,7 @@ void setup()
   }
 
   batSetup();
+
   if ( batGetVoltageX10() < 90 )
   {
     DEBUG("bat voltage low - dispable SAT, RTC and DISPLAY");
@@ -128,6 +135,8 @@ void setup()
     disableRTC = 1;
     disableSat = 1;
   }
+
+  // aux power must be on for theses setups
   satSetup();
   rtcSetup();
   windSetup();
@@ -148,6 +157,8 @@ void setup()
   }
 
   dispStart(); // don't start till after have a time or rtc remains active until display is not
+
+  DEBUG( "Done SETUP -----------------" );
 }
 
 
@@ -181,6 +192,7 @@ void auxPowerOn()
   {
     return;
   }
+  DEBUG("turn ON aux power ");
   digitalWrite( auxPwrEnablePin, HIGH );
   auxPowerStatus = 1;
 }
@@ -192,6 +204,7 @@ void auxPowerOff()
   {
     return;
   }
+  DEBUG("turn OFF aux power ");
   digitalWrite( auxPwrEnablePin, LOW );
   auxPowerStatus = 0;
 }
@@ -272,7 +285,7 @@ void runSched() {
     }
   }
 
-  if (1)
+  if (1) // normal satTX schedule
   {
     if ( (nowHour >= 7) && (nowHour <= 16 ) )
     {
@@ -314,27 +327,23 @@ void runSched() {
     }
   }
 
-  /* controll power */
-  if ( 0 ) // TODO
+  /* controll power ON */
+  if ( 1 ) // TODO
   {
     if ( rtcActive || windActive || dispActive || satActive )
     {
       auxPowerOn();
     }
-    else
-    {
-      auxPowerOff();
-    }
   }
 
   /* run other stuff */
-  if ( rtcActive )
-  {
-    rtcRun();
-  }
   if ( batActive )
   {
     batRun();
+  }
+  if ( rtcActive )
+  {
+    rtcRun();
   }
   if ( windActive )
   {
@@ -360,13 +369,21 @@ void runSched() {
   prevMinute = nowMinute;
   prevSec = nowSec;
 
+
+ /* controll power OFF */
+  if ( 1 ) // TODO
+  {
+    if ( ! ( rtcActive || windActive || dispActive || satActive ) )
+    {
+      auxPowerOff();
+    }
+  }
+  
   if ( !satActive && !rtcActive && !windActive && !dispActive && !batActive )
   {
     //DEBUG( "Scheudle start deepSleep" );
     deepSleep( 60 - nowSec );
   }
-
-
 }
 
 void deepSleep(long t/* seconds*/)
@@ -424,12 +441,12 @@ void windRun()
 {
   //DEBUG( "In windRun" );
 
-  delay( 20 ); // TODO measure time to stable from power on
+  //delay( 20 ); // TODO measure time to stable from power on
 
-  //if ( nowTime < windStartTime + 100 )
-  //{
-  //  return;
-  //}
+  if ( nowTime < windStartTime + 1500 ) // takes 1.5 seconds to get a stable reading
+  {
+    return;
+  }
 
   // sensor returns 0.4 v for 0 m/s wind and 2.0v for max wind of 32.4 m/s
   unsigned int val = analogRead(windPin); // max val is 1023 at 3.3 v
@@ -483,7 +500,7 @@ unsigned int windGetSpeedMPSx100()
 
 unsigned int windGetGustSpeedMPSx100()
 {
-  return lastWindSpeedMPSx100;
+  return maxWindSpeedMPSx100;
 }
 
 
@@ -560,41 +577,36 @@ void rtcRun()
     return;
   }
 
-  //DEBUG( "In rtcRun");
+  DEBUG( "In rtcRun 0");
 
-  delay( 2 ); // mesure time from power on to usable
-
-  // if ( nowTime < rtcStartTime + 5 )
-  // {
-  //   return;
-  // }
+  delay(2);
 
   byte h, m, s;
   rtcStartTime = nowTime;
 
-
   s = 0xFF;
 
-  if (1)
-  {
-    Wire.beginTransmission(rtcAddress);
-    Wire.write(byte(0x00));
-    Wire.endTransmission();
+  Wire.beginTransmission(rtcAddress);
+  Wire.write(byte(0x00));
+  Wire.endTransmission();
 
-    Wire.requestFrom(rtcAddress, 3); // num bytes to ready
-    rawTime1 = Wire.read() ;
-    rawTime2 = Wire.read();
-    rawTime3 = Wire.read();
+  DEBUG( "In rtcRun 1");
 
-    s = bcdToDec( rawTime1 & 0x7f ); // second - mask out CH bit
-    m = bcdToDec( rawTime2 ); // minute
-    h = bcdToDec( rawTime3 & 0x3f );  // hour - assume 24 hour mode
+  Wire.requestFrom(rtcAddress, 3); // num bytes to ready
+  rawTime1 = Wire.read() ;
+  rawTime2 = Wire.read();
+  rawTime3 = Wire.read();
 
-    //dayOfWeek  = bcdToDec( Wire.read() ); // dayOfWeek 1 to 7
-    //dayOfMonth = bcdToDec( Wire.read() ); // dayOfMonbth 1 to 31
-    //month      = bcdToDec( Wire.read() ); // month 1 to 12
-    //year       = bcdToDec( Wire.read() ); // year will be 0 to 99
-  }
+  DEBUG( "In rtcRun 2");
+
+  s = bcdToDec( rawTime1 & 0x7f ); // second - mask out CH bit
+  m = bcdToDec( rawTime2 ); // minute
+  h = bcdToDec( rawTime3 & 0x3f );  // hour - assume 24 hour mode
+
+  //dayOfWeek  = bcdToDec( Wire.read() ); // dayOfWeek 1 to 7
+  //dayOfMonth = bcdToDec( Wire.read() ); // dayOfMonbth 1 to 31
+  //month      = bcdToDec( Wire.read() ); // month 1 to 12
+  //year       = bcdToDec( Wire.read() ); // year will be 0 to 99
 
   if ( (s > 60) || ( m > 60 ) || ( h > 24 ) )
   {
@@ -668,7 +680,10 @@ void batSetup()
 
 void batStart()
 {
-  if (batActive) return;
+  if (batActive)
+  {
+    return;
+  }
 
   batStartTime = nowTime;
   batActive = 1;
@@ -678,18 +693,14 @@ void batRun()
 {
   //DEBUG( "In batRun" );
 
-  delay( 2 ); // how long to charge cap from power on
-  //if ( nowTime < batStartTime + 10 )
-  //{
-  //  return;
-  //}
-
   int v = analogRead( batSensePin );
   v = v * 30; // will overflow it scale by value larger than this
   v = v / 145;
   v = v + 8; // TODO - calibrate - adjust for protection diode on input
   lastBatVoltageX10 = v;
 
+  // note - reported 12.4 when actually was 12.6 
+  
   batStop();
 }
 
@@ -960,6 +971,14 @@ void satSetup()
   sat.attachConsole(Serial);
   sat.attachDiags(Serial);
   sat.setPowerProfile(0);
+
+  if ( !disableSat )
+  {
+    if ( !sat.isAsleep() )
+    {
+      sat.sleep();
+    }
+  }
 }
 
 void satStart()
@@ -970,23 +989,26 @@ void satStart()
   satStartTime = nowTime;
   satLastErr = 0xFF;
   satTxCount = 0;
-
-  if ( !disableSat )
-  {
-    sat.begin();
-  }
 }
 
 void satRun()
 {
   DEBUG( "in satRun" );
 
-  int sigQuality = 9;
+  if ( !disableSat )
+  {
+    if ( sat.isAsleep() )
+    {
+      sat.begin();
+    }
+  }
+
+  int sigQuality = 0;
   int err;
 
   if (!disableSat)
   {
-    err = sat.getSignalQuality(sigQuality);
+    err = sat.getSignalQuality( sigQuality );
     if (err != 0)
     {
       DEBUG2( "getSignalQuality failed err=" , err );
@@ -996,9 +1018,10 @@ void satRun()
     }
     DEBUG2( "Sat signal quality = " , sigQuality );
 
-    if ( sigQuality <= 2 ) {
+    if ( sigQuality < 2 )
+    {
       // wait 5 minutes for better sigQuality
-      if ( nowTime <= satStartTime + 5 * 60 * 1000 )
+      if ( nowTime < satStartTime + (long)300000 ) // wait up to 5 min for good sat signal
       {
         DEBUG( "Waiting for better sat signal" );
         digitalWrite(ledPin, LOW);
@@ -1009,18 +1032,17 @@ void satRun()
         DEBUG( "Gave up Waiting for better sat signal" );
       }
     }
-
   }
 
   satTxCount++;
 
   String satMsg;
-  satMsg.reserve(118); // TODO - set size
+  satMsg.reserve(120); // TODO - set size (currenly use 118)
   unsigned int w = windGetAvgSpeedMPSx100();
   unsigned int g = windGetGustSpeedMPSx100();
   unsigned int v = batGetVoltageX10();
 
-  satMsg = "{\"bn\":\"RB8920/\",";
+  satMsg = "{\"bn\":\"RB8920/v1/\",";
   //satMsg += "\"ver\":1,";
   satMsg += "\"bu\":\"m/s\",";
   // addding a base time makes this too large
@@ -1076,6 +1098,7 @@ void satRun()
       satLastErr = 0;
       satLastTxTime = millis();
       satStop();
+      windReset();
     }
   }
   else
@@ -1085,7 +1108,7 @@ void satRun()
     satStop();
   }
 
-  if ( satTxCount >= 3 ) // TODO - adjust - retry transmition 3 times
+  if ( satTxCount >= 4 ) // TODO - adjust - retry transmition 4 times
   {
     satStop();
   }
@@ -1098,7 +1121,10 @@ void satStop()
 {
   if ( !disableSat )
   {
-    sat.sleep();
+    if ( !sat.isAsleep() )
+    {
+      sat.sleep();
+    }
   }
 
   digitalWrite(ledPin, LOW);
