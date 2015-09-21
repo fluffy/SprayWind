@@ -203,7 +203,7 @@ void auxPowerOn()
   {
     return;
   }
-  DEBUG("turn ON aux power ");
+  //DEBUG("turn ON aux power ");
   digitalWrite( auxPwrEnablePin, HIGH );
   auxPowerStatus = 1;
 }
@@ -215,7 +215,7 @@ void auxPowerOff()
   {
     return;
   }
-  DEBUG("turn OFF aux power ");
+  //DEBUG("turn OFF aux power ");
   digitalWrite( auxPwrEnablePin, LOW );
   auxPowerStatus = 0;
 }
@@ -274,7 +274,8 @@ void runSched() {
     windStart();
   }
 
-  if ( nowMinute != prevMinute ) // todo less often
+  //if ( nowMinute != prevMinute ) // todo less often
+  if ( ((nowMinute + 1) / 5) != ((prevMinute + 1) / 5) ) // ever 5 min, but 1 min before satStart
   {
     DEBUG( "Scheudle start bat" );
     batStart();
@@ -419,32 +420,38 @@ void deepSleep( long t /* seconds */ )
     lightSleep(t);
     return;
   }
-  DEBUG2( "in Deep sleep ", t );
+  DEBUG2( "Deep sleep ", t );
+  delay( 100 ); // give serial time to print 
 
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  while ( t > 8 )
+  {
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 
-  DEBUG("power DOWN");
-  delay( 150 );
+    //DEBUG("power DOWN");
+    //delay( 150 );
 
-  sleep_enable();
-  sleep_mode(); // go to sleep
+    sleep_enable();
+    sleep_mode(); // go to sleep
 
-  // we sleep here
+    // we sleep here
 
-  sleep_disable();
-  power_all_enable();
+    sleep_disable();
+    power_all_enable();
 
-  numDeepSleeps++;
+    numDeepSleeps++;
 
-  delay( 50 );
+    t = t - 8;
+  }
 
-  DEBUG("power UP");
+  delay( 10 ); 
+  //delay( 50 );
+  //DEBUG("power UP");
 }
 
 
-void lightSleep(long t/* seconds*/)
+void lightSleep(long t /* seconds*/)
 {
-  DEBUG2( "in Deep sleep ", t );
+  DEBUG2( "light sleep ", t );
   if ( t > 10 ) t = 10; // TODO - consider remove
 
   stopSleep = 0;
@@ -527,6 +534,11 @@ void windRun()
     val = val * 13; // max val is 11,687
     val = val / 2;
 
+    if ( lastWindSpeedMPSx100 ==  0xFFFF ) 
+    {
+      DEBUG2( "wind speed = " , val ); // oply print the first time for each winStart / stop 
+    }
+    
     lastWindSpeedMPSx100 = val;
     if ( lastWindSpeedMPSx100 > maxWindSpeedMPSx100 )
     {
@@ -534,6 +546,7 @@ void windRun()
     }
     sumWindSpeedMPSx100 += (unsigned long)lastWindSpeedMPSx100;
     countWindSpeed++;
+    
   }
 
   windStop();
@@ -633,7 +646,7 @@ void rtcRun()
     return;
   }
 
-  DEBUG( "In rtcRun 0");
+  //DEBUG( "In rtcRun 0");
 
   delay(2);
 
@@ -647,14 +660,14 @@ void rtcRun()
   Wire.write(byte(0x00));
   Wire.endTransmission();
 
-  DEBUG( "In rtcRun 1");
+  //DEBUG( "In rtcRun 1");
 
   Wire.requestFrom(rtcAddress, 3); // num bytes to ready
   rawTime1 = Wire.read() ;
   rawTime2 = Wire.read();
   rawTime3 = Wire.read();
 
-  DEBUG( "In rtcRun 2");
+  //DEBUG( "In rtcRun 2");
 
   s = bcdToDec( rawTime1 & 0x7f ); // second - mask out CH bit
   m = bcdToDec( rawTime2 ); // minute
@@ -681,8 +694,8 @@ void rtcRun()
   if (1) // TODO
   {
     DEBUG_NOCR( "rtcRun real time = " );
-    DEBUG_NOCR( h ); DEBUG_NOCR( ":" );
-    DEBUG_NOCR( m ); DEBUG_NOCR( ":" );
+    DEBUG_NOCR( h/10 ); DEBUG_NOCR( h%10 ); DEBUG_NOCR( ":" );
+    DEBUG_NOCR( m/10 ); DEBUG_NOCR( m%10 ); DEBUG_NOCR( ":" );
     DEBUG( s );
   }
 
