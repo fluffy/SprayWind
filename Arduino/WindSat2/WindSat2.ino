@@ -420,10 +420,10 @@ void deepSleep( long t /* seconds */ )
     lightSleep(t);
     return;
   }
-  DEBUG2( "Deep sleep ", t );
+  DEBUG2( "deep sleep ", t );
   delay( 100 ); // give serial time to print 
 
-  while ( t > 8 )
+  while ( t >= 8 )
   {
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 
@@ -651,6 +651,18 @@ void rtcRun()
   delay(2);
 
   byte h, m, s;
+  
+  
+  if (1) // TODO
+  {
+    rtcGetTime( &h, &m, &s );
+    DEBUG_NOCR( "rtcRun predict time = " );
+    DEBUG_NOCR( h/10 ); DEBUG_NOCR( h%10 ); DEBUG_NOCR( ":" );
+    DEBUG_NOCR( m/10 ); DEBUG_NOCR( m%10 ); DEBUG_NOCR( ":" );
+    DEBUG_NOCR( s/10 ); DEBUG( s%10 );
+  }
+  
+  
   rtcStartTime = nowTime;
   numDeepSleeps = 0;
 
@@ -798,7 +810,6 @@ void dispSetup()
   DEBUG("start dispSetup");
   byte err;
 
-
   if (disableDisplay)
   {
     DEBUG("Display disabled");
@@ -806,21 +817,8 @@ void dispSetup()
   }
 
   Wire.beginTransmission(displayAddress);
-  DEBUG("0");
-  err = Wire.endTransmission(false);
-  if (err)
-  {
-    DEBUG2( "distSetup i2c error = " , err );
-  }
-
-  Wire.beginTransmission(displayAddress);
-  DEBUG("1");
   Wire.write( 0x7A );
-
-  DEBUG("2");
   Wire.write(  0xFF ); // full brightness
-
-  DEBUG("3");
   err = Wire.endTransmission();
   if (err)
   {
