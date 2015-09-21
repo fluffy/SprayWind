@@ -696,7 +696,7 @@ void rtcRun()
     DEBUG_NOCR( "rtcRun real time = " );
     DEBUG_NOCR( h/10 ); DEBUG_NOCR( h%10 ); DEBUG_NOCR( ":" );
     DEBUG_NOCR( m/10 ); DEBUG_NOCR( m%10 ); DEBUG_NOCR( ":" );
-    DEBUG( s );
+    DEBUG_NOCR( s/10 ); DEBUG( s%10 );
   }
 
   rtcStartSeconds = (long)h * 3600 + (long)m * 60 + (long)s;
