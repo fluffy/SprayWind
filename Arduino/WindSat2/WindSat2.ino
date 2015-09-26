@@ -27,25 +27,21 @@
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-// TODO - adjust battery voltage to account for protection dioade (recalibrate)
-
 // TODO - make meassure real wind
 
 // TODO - check what happens sensor error all way back to spray wind
 
 // TODO - turn off debug
 
-// TODO - turn on power managment
-
-// TODO - measure power usage
-
 // TODO - turn off arduino for deep sleep
 
 // TODO - 4.7k pull up on SCA and SCL for I2C
 
-// measuure time for wind voltage measure to get stable after power up - look like 1.2 seconds
+// TODO - shutdown at min battery voltage 
 
+// TODO - compute avg and max wind over last 10 min measurements in an array 
+
+// add jumper to disable power on programmin header 
 
 
 #include <SoftwareSerial.h>
