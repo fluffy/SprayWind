@@ -33,9 +33,9 @@
 
 // TODO - compute avg and max wind over last 10 min measurements in an array
 
-// TODO - time since last sat TX likely wrong 
+// TODO - time since last sat TX likely wrong
 
-// TODO - number sat tx retries could use adjustment 
+// TODO - number sat tx retries could use adjustment
 
 
 #include <SoftwareSerial.h>
@@ -157,7 +157,6 @@ void setup()
 
   dispStart(); // don't start till after have a time or rtc remains active until display is not
 
-
   setupSleep();
 
   DEBUG( "Done SETUP -----------------" );
@@ -262,7 +261,7 @@ void runSched() {
     windStart();
   }
 
-  if ( ((nowMinute + 1) / 10) != ((prevMinute + 1) / 10) ) // ever 10 min, but 1 min before satStart
+  if ( ((nowMinute + 1) / 15) != ((prevMinute + 1) / 15) ) // ever 15 min, but 1 min before satStart
   {
     DEBUG( "Scheudle start bat" );
     batStart();
@@ -634,12 +633,10 @@ void rtcRun()
 
   //DEBUG( "In rtcRun 0");
 
-  delay(2);
+  delay(10);
 
   byte h, m, s;
-
-
-  if (1) 
+  if (1)
   {
     rtcGetTime( &h, &m, &s );
     DEBUG_NOCR( "rtcRun predict time = " );
@@ -647,7 +644,6 @@ void rtcRun()
     DEBUG_NOCR( m / 10 ); DEBUG_NOCR( m % 10 ); DEBUG_NOCR( ":" );
     DEBUG_NOCR( s / 10 ); DEBUG( s % 10 );
   }
-
 
   rtcStartTime = nowTime;
   numDeepSleeps = 0;
@@ -689,7 +685,7 @@ void rtcRun()
     h = (t % 24);
   }
 
-  if (1) 
+  if (1)
   {
     DEBUG_NOCR( "rtcRun real time = " );
     DEBUG_NOCR( h / 10 ); DEBUG_NOCR( h % 10 ); DEBUG_NOCR( ":" );
@@ -761,8 +757,11 @@ void batRun()
 {
   //DEBUG( "In batRun" );
 
-  int v = analogRead( batSensePin );
-  v = v * 30; // will overflow it scale by value larger than this
+  delay( 100 ); // need some delay here or get readings of 1.4 v - this may be too much delay
+
+  int v;
+  v = analogRead( batSensePin );
+  v = v * 30; // will overflow it scaled by value larger than this
   v = v / 145;
   v = v + 8; //  adjust for protection diode on input
   lastBatVoltageX10 = v;
@@ -1035,6 +1034,7 @@ void satSetup()
   }
 }
 
+
 void satStart()
 {
   if ( satActive ) return;
@@ -1044,6 +1044,7 @@ void satStart()
   satLastErr = 0xFF;
   satTxCount = 0;
 }
+
 
 void satRun()
 {
@@ -1171,6 +1172,7 @@ void satRun()
   digitalWrite(ledPin, LOW);
 }
 
+
 void satStop()
 {
   if ( !disableSat )
@@ -1185,10 +1187,12 @@ void satStop()
   satActive = 0;
 }
 
+
 byte satGetError()
 {
   return satLastErr;
 }
+
 
 unsigned long satGetLastTxTime()
 {
