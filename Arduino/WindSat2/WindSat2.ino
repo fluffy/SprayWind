@@ -27,21 +27,15 @@
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-// TODO - make meassure real wind
-
 // TODO - check what happens sensor error all way back to spray wind
 
-// TODO - turn off debug
+// TODO - shutdown at min battery voltage
 
-// TODO - turn off arduino for deep sleep
+// TODO - compute avg and max wind over last 10 min measurements in an array
 
-// TODO - 4.7k pull up on SCA and SCL for I2C
+// TODO - time since last sat TX likely wrong 
 
-// TODO - shutdown at min battery voltage 
-
-// TODO - compute avg and max wind over last 10 min measurements in an array 
-
-// add jumper to disable power on programmin header 
+// TODO - number sat tx retries could use adjustment 
 
 
 #include <SoftwareSerial.h>
@@ -52,7 +46,6 @@
 #include <avr/sleep.h>
 #include <avr/power.h>
 #include <avr/wdt.h>
-
 
 
 static const int btnPin = 2;
@@ -76,16 +69,18 @@ static const int rtcAddress = 0x68; // See data sheet for DS1307
 SoftwareSerial satSerial( satRxPin, satTxPin );
 IridiumSBD sat( satSerial, satPwrEnablePin );
 
-
+#if 0
 #define DEBUG( X ) Serial.println( X );
 #define DEBUG_NOCR( X ) Serial.print( X );
 #define DEBUG2( X, Y ) Serial.print( X ); Serial.println( Y );
 #define DEBUG_NOCR2( X,Y ) Serial.print( X) ; Serial.print( Y );
+#else
+#define DEBUG( X ) ;
+#define DEBUG_NOCR( X ) ;
+#define DEBUG2( X, Y ) ;
+#define DEBUG_NOCR2( X,Y ) ;
+#endif
 
-//#define DEBUG( X ) ;
-//#define DEBUG_NOCR( X ) ;
-//#define DEBUG2( X, Y ) ;
-//#define DEBUG_NOCR2( X,Y ) ;
 
 byte disableDisplay = 0;
 byte disableRTC = 0;
@@ -172,10 +167,7 @@ void setup()
 void loop()
 {
   //DEBUG_NOCR(".");
-
-  //delay( 500 /*ms*/ ); // TODO remove
   delay(10);
-
   runSched();
 }
 
@@ -270,8 +262,7 @@ void runSched() {
     windStart();
   }
 
-  //if ( nowMinute != prevMinute ) // todo less often
-  if ( ((nowMinute + 1) / 5) != ((prevMinute + 1) / 5) ) // ever 5 min, but 1 min before satStart
+  if ( ((nowMinute + 1) / 10) != ((prevMinute + 1) / 10) ) // ever 10 min, but 1 min before satStart
   {
     DEBUG( "Scheudle start bat" );
     batStart();
@@ -283,7 +274,7 @@ void runSched() {
     rtcStart();
   }
 
-  if ( 1 ) // debug special sat tx 15 seconds after power up TODO TURN off
+  if ( 0 ) // debug special sat tx 15 seconds after power up
   {
     static byte firstTime = 1;
     if ( firstTime  && ( nowTime > 15 * 1000 ) )
@@ -336,7 +327,7 @@ void runSched() {
   }
 
   /* controll power ON */
-  if ( 1 ) // TODO
+  if ( 1 )
   {
     if ( rtcActive || windActive || dispActive || satActive )
     {
@@ -379,7 +370,7 @@ void runSched() {
 
 
   /* controll power OFF */
-  if ( 1 ) // TODO
+  if ( 1 )
   {
     if ( ! ( rtcActive || windActive || dispActive || satActive ) )
     {
@@ -417,7 +408,7 @@ void deepSleep( long t /* seconds */ )
     return;
   }
   DEBUG2( "deep sleep ", t );
-  delay( 100 ); // give serial time to print 
+  delay( 100 ); // give serial time to print
 
   while ( t >= 8 )
   {
@@ -439,7 +430,7 @@ void deepSleep( long t /* seconds */ )
     t = t - 8;
   }
 
-  delay( 10 ); 
+  delay( 10 );
   //delay( 50 );
   //DEBUG("power UP");
 }
@@ -448,7 +439,7 @@ void deepSleep( long t /* seconds */ )
 void lightSleep(long t /* seconds*/)
 {
   DEBUG2( "light sleep ", t );
-  if ( t > 10 ) t = 10; // TODO - consider remove
+  if ( t > 10 ) t = 10;
 
   stopSleep = 0;
   long time = t * 10;
@@ -499,9 +490,6 @@ void windStart()
 void windRun()
 {
   //DEBUG( "In windRun" );
-
-  //delay( 20 ); // TODO measure time to stable from power on
-
   if ( nowTime < windStartTime + 1500 ) // takes 1.5 seconds to get a stable reading
   {
     return;
@@ -511,9 +499,11 @@ void windRun()
   unsigned int val = analogRead(windPin); // max val is 1023 at 3.3 v
   //DEBUG2( "wind raw value = " , val );
 
-  //val = 242; // TODO - this is about 15 knots
-
-  val = prevMinute * 2 + 124; // TODO - remove
+  if ( 0 ) // fake wind
+  {
+    //val = 242; // this is about 15 knots
+    val = prevMinute * 2 + 124;
+  }
 
   if ( val < 100 )
   {
@@ -530,11 +520,11 @@ void windRun()
     val = val * 13; // max val is 11,687
     val = val / 2;
 
-    if ( lastWindSpeedMPSx100 ==  0xFFFF ) 
+    if ( lastWindSpeedMPSx100 ==  0xFFFF )
     {
-      DEBUG2( "wind speed = " , val ); // oply print the first time for each winStart / stop 
+      DEBUG2( "wind speed = " , val ); // oply print the first time for each winStart / stop
     }
-    
+
     lastWindSpeedMPSx100 = val;
     if ( lastWindSpeedMPSx100 > maxWindSpeedMPSx100 )
     {
@@ -542,7 +532,7 @@ void windRun()
     }
     sumWindSpeedMPSx100 += (unsigned long)lastWindSpeedMPSx100;
     countWindSpeed++;
-    
+
   }
 
   windStop();
@@ -647,18 +637,18 @@ void rtcRun()
   delay(2);
 
   byte h, m, s;
-  
-  
-  if (1) // TODO
+
+
+  if (1) 
   {
     rtcGetTime( &h, &m, &s );
     DEBUG_NOCR( "rtcRun predict time = " );
-    DEBUG_NOCR( h/10 ); DEBUG_NOCR( h%10 ); DEBUG_NOCR( ":" );
-    DEBUG_NOCR( m/10 ); DEBUG_NOCR( m%10 ); DEBUG_NOCR( ":" );
-    DEBUG_NOCR( s/10 ); DEBUG( s%10 );
+    DEBUG_NOCR( h / 10 ); DEBUG_NOCR( h % 10 ); DEBUG_NOCR( ":" );
+    DEBUG_NOCR( m / 10 ); DEBUG_NOCR( m % 10 ); DEBUG_NOCR( ":" );
+    DEBUG_NOCR( s / 10 ); DEBUG( s % 10 );
   }
-  
-  
+
+
   rtcStartTime = nowTime;
   numDeepSleeps = 0;
 
@@ -699,12 +689,12 @@ void rtcRun()
     h = (t % 24);
   }
 
-  if (1) // TODO
+  if (1) 
   {
     DEBUG_NOCR( "rtcRun real time = " );
-    DEBUG_NOCR( h/10 ); DEBUG_NOCR( h%10 ); DEBUG_NOCR( ":" );
-    DEBUG_NOCR( m/10 ); DEBUG_NOCR( m%10 ); DEBUG_NOCR( ":" );
-    DEBUG_NOCR( s/10 ); DEBUG( s%10 );
+    DEBUG_NOCR( h / 10 ); DEBUG_NOCR( h % 10 ); DEBUG_NOCR( ":" );
+    DEBUG_NOCR( m / 10 ); DEBUG_NOCR( m % 10 ); DEBUG_NOCR( ":" );
+    DEBUG_NOCR( s / 10 ); DEBUG( s % 10 );
   }
 
   rtcStartSeconds = (long)h * 3600 + (long)m * 60 + (long)s;
@@ -774,7 +764,7 @@ void batRun()
   int v = analogRead( batSensePin );
   v = v * 30; // will overflow it scale by value larger than this
   v = v / 145;
-  v = v + 8; // TODO - calibrate - adjust for protection diode on input
+  v = v + 8; //  adjust for protection diode on input
   lastBatVoltageX10 = v;
 
   // note - reported 12.5 when actually was 12.6
@@ -1116,7 +1106,7 @@ void satRun()
   satMsg += v / 10 ;
   satMsg += ".";
   satMsg += v % 10 ;
-  if (1) // TODO - Sig + retry hack
+  if (1) // TODO - sat signal level + retry hack
   {
     satMsg += 0;
     satMsg += sigQuality % 10 ;
