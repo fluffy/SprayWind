@@ -41,10 +41,9 @@ Battery: {{ voltage|floatformat:2 }} V <br/>
     		To learn more about this website, see <a href="http://doc.spraywind.com/">http://doc.spraywind.com/</a> 
     </p>
     <p> time={{time}}, expireTime={{expireTime}}, rawTime={{rawTime}}, expired={{expired}} </p>
-<p>
-Battery: {{ voltage }} V <br/>
-</p>
-
+<p>Battery: {{ voltage }} V <br/> </p>
+<p>Sat Signal: {{ satSignal }}</p>
+<p>Sat TX Tries: {{ satTxRetry }}</p>
 </details>
 
 <p> 

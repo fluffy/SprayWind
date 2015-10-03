@@ -40,17 +40,22 @@ from django.utils import timezone
 def getWind( request, sensorName ):
     sensorReading = SensorReading.objects.filter( sensorID=sensorName ).latest()
     
-    expireTime = datetime.datetime.now() - datetime.timedelta(minutes=7)
+    expireTime = datetime.datetime.now(  timezone.utc ) - datetime.timedelta(minutes=7)
     rawTime = sensorReading.time
     rawTime = rawTime.replace(tzinfo=None)
     expireTime = expireTime.replace(tzinfo=None)
     expired =  rawTime <= expireTime
-    
+
+    satSignal = int(sensorReading.voltage*1000) % 10;
+    satTxRetry =  int(sensorReading.voltage*10000) % 10;
+        
     return render(request, 'wind.html', 
     				{ 'expireTime': expireTime,
                       'expired': expired,
                       'rawTime': rawTime, 
-                      'time':    sensorReading.time, 
+                      'time':    sensorReading.time,
+                      'satSignal': satSignal,
+                      'satTxRetry': satTxRetry,
     				  'curWind': sensorReading.curWind*1.943, # convert from m/s to knot
     				  'minWind': sensorReading.minWind*1.943,
     				  'avgWind': sensorReading.avgWind*1.943,
@@ -71,7 +76,7 @@ def getInfo( request, sensorName ):
 
 def rockBlock( request ):
     sensorName = "sprayWind"
-    now = datetime.datetime.now()
+    now = datetime.datetime.now( timezone.utc )
 
     log =  "-------------------------------------------------------------------\n" 
     log +=  "rockBlock at %s \n" % now
