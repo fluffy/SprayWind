@@ -41,15 +41,15 @@ def getWind( request, sensorName ):
     sensorReading = SensorReading.objects.filter( sensorID=sensorName ).latest()
     
     expireTime = datetime.datetime.now() - datetime.timedelta(minutes=7)
-    time = sensorReading.time
-    time = time.replace(tzinfo=None)
+    rawTime = sensorReading.time
+    rawTime = rawTime.replace(tzinfo=None)
     expireTime = expireTime.replace(tzinfo=None)
-    expired =  time <= expireTime
+    expired =  rawTime <= expireTime
     
     return render(request, 'wind.html', 
     				{ 'expireTime': expireTime,
                       'expired': expired,
-                      'rawTime': time, 
+                      'rawTime': rawTime, 
                       'time':    sensorReading.time, 
     				  'curWind': sensorReading.curWind*1.943, # convert from m/s to knot
     				  'minWind': sensorReading.minWind*1.943,
