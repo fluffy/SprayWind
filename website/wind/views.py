@@ -35,12 +35,22 @@ import string
 import codecs
 
 from website.wind.models import SensorReading
-
+from django.utils import timezone
 
 def getWind( request, sensorName ):
     sensorReading = SensorReading.objects.filter( sensorID=sensorName ).latest()
+    
+    expireTime = datetime.datetime.now() - datetime.timedelta(minutes=7)
+    time = sensorReading.time
+    time = time.replace(tzinfo=None)
+    expireTime = expireTime.replace(tzinfo=None)
+    expired =  time <= expireTime
+    
     return render(request, 'wind.html', 
-    				{ 'time':    sensorReading.time, 
+    				{ 'expireTime': expireTime,
+                      'expired': expired,
+                      'rawTime': time, 
+                      'time':    sensorReading.time, 
     				  'curWind': sensorReading.curWind*1.943, # convert from m/s to knot
     				  'minWind': sensorReading.minWind*1.943,
     				  'avgWind': sensorReading.avgWind*1.943,

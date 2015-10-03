@@ -22,12 +22,16 @@
 
 </head>
 <body>
-<p> 
-Wind: <strong> {{ curWind|floatformat:0 }} knots </strong>
-(gusting to {{maxWind|floatformat:0 }}) <br/>
+<h3> Currently test data only and NOT real data from Spray Lakes </h3>
+<p>
+{% if expired %}
+Sensor is not reporting data <br/>
+{% else %}
+Wind: <strong> {{ curWind|floatformat:0 }} knots </strong> gusting to {{maxWind|floatformat:0 }}) <br/>
+{% endif %}
 Updated {{ time|timesince }} ago <br/>
-Battery: {{ voltage|floatformat:2 }} V <br>
-<p/>
+Battery: {{ voltage|floatformat:2 }} V <br/>
+</p>
 <details>
 	<summary> More Info: </summary>
 	<p> 
@@ -36,6 +40,11 @@ Battery: {{ voltage|floatformat:2 }} V <br>
     <p> 
     		To learn more about this website, see <a href="http://doc.spraywind.com/">http://doc.spraywind.com/</a> 
     </p>
+    <p> time={{time}}, expireTime={{expireTime}}, rawTime={{time}}, expired={{expired}} </p>
+<p>
+Battery: {{ voltage }} V <br/>
+</p>
+
 </details>
 
 <p> 
