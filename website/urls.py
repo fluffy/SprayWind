@@ -35,7 +35,6 @@ admin.autodiscover()
 urlpatterns = patterns('',
     url( r'^$', 'website.wind.views.getWind', { 'sensorName':"sprayWind" } ),
     url( r'^info$', 'website.wind.views.getInfo', { 'sensorName':"sprayWind" } ),
-    # url( r'^spot.json$', 'website.wind.views.cloudMailInJson' ),
     url( r'^rockblock$', 'website.wind.views.rockBlock' ),
  
     # url(r'^admin/doc/', include('django.contrib.admindocs.urls')),
