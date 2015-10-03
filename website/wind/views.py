@@ -40,7 +40,7 @@ from django.utils import timezone
 def getWind( request, sensorName ):
     sensorReading = SensorReading.objects.filter( sensorID=sensorName ).latest()
     
-    expireTime = datetime.datetime.now(  timezone.utc ) - datetime.timedelta(minutes=7)
+    expireTime = datetime.datetime.now(  timezone.utc ) - datetime.timedelta(minutes=120)
     rawTime = sensorReading.time
     rawTime = rawTime.replace(tzinfo=None)
     expireTime = expireTime.replace(tzinfo=None)
