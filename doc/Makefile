@@ -17,4 +17,6 @@ clean:
 	pandoc -t html5 $< -o $@
 
 %.pdf: %.html $(PNG)
-	wkpdf -p letter -s $< -o $@
+	wkhtmltopdf  -s letter $<  $@
+
+
