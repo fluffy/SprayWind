@@ -1092,12 +1092,12 @@ void satRun()
   satTxCount++;
 
   String satMsg;
-  satMsg.reserve(120); // TODO - set size (currenly use 118)
+  satMsg.reserve(124); // set size (currenly use 119 + termination)
   unsigned int w = windGetAvgSpeedMPSx100();
   unsigned int g = windGetGustSpeedMPSx100();
   unsigned int v = batGetVoltageX10();
 
-  satMsg = "{\"bn\":\"RB8920/v1/\",";
+  satMsg = "{\"bn\":\"RB8920/v1/\","; // TODO - move hardcode name to top 
   //satMsg += "\"ver\":1,";
   satMsg += "\"bu\":\"m/s\",";
   // addding a base time makes this too large
