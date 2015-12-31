@@ -288,7 +288,8 @@ void runSched() {
     if ( (nowHour >= 7) && (nowHour <= 16 ) )
     {
       // day
-      if ( ( (nowMinute / 15) != (prevMinute / 15) ) && ( nowTime > 30000 ) )
+      //  if ( ( (nowMinute / 30) != (prevMinute / 30) ) && ( nowTime > 30000 ) )
+      if ( ( nowHour  != prevHour  ) && ( nowTime > 30000 ) )
       {
         DEBUG( "Scheudle start sat" );
         satStart();
@@ -297,7 +298,7 @@ void runSched() {
     else
     {
       //night
-      if ( ( nowHour != prevHour ) && ( nowTime > 30000 ) )
+      if ( ( nowHour / 3 != prevHour / 3 ) && ( nowTime > 30000 ) )
       {
         DEBUG( "Scheudle start sat" );
         satStart();
@@ -1097,7 +1098,7 @@ void satRun()
   unsigned int g = windGetGustSpeedMPSx100();
   unsigned int v = batGetVoltageX10();
 
-  satMsg = "{\"bn\":\"RB8920/v1/\","; // TODO - move hardcode name to top 
+  satMsg = "{\"bn\":\"RB8920/v1/\","; // TODO - move hardcode name to top
   //satMsg += "\"ver\":1,";
   satMsg += "\"bu\":\"m/s\",";
   // addding a base time makes this too large
